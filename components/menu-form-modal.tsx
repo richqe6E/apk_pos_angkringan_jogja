@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Modal,
   View,
@@ -9,6 +9,8 @@ import {
   ScrollView,
   Image,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useSQLiteContext } from 'expo-sqlite';
@@ -40,25 +42,39 @@ export function MenuFormModal({ visible, menuItem, onClose }: MenuFormModalProps
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [categoryModalVisible, setCategoryModalVisible] = useState(false);
 
+  const prevVisibleRef = useRef(false);
+  const prevMenuItemIdRef = useRef<number | null | undefined>(undefined);
+
   useEffect(() => {
-    if (menuItem) {
-      setName(menuItem.name);
-      setPriceText(formatRupiahInput(menuItem.price));
-      setSelectedCatId(menuItem.category_id);
-      setTrackStock(menuItem.track_stock === 1);
-      setStockText(menuItem.stock.toString());
-      setBarcode(menuItem.barcode || '');
-      setPhotoUri(menuItem.image_path || null);
-    } else {
-      setName('');
-      setPriceText('');
-      setSelectedCatId(categories.length > 0 ? categories[0].id : null);
-      setTrackStock(false);
-      setStockText('0');
-      setBarcode('');
-      setPhotoUri(null);
+    // Hanya inisialisasi/reset saat modal bertransisi dari tertutup ke terbuka,
+    // atau ketika menuItem yang dipilih berubah ID-nya.
+    // Menambahkan kategori baru tidak akan mereset input form yang sedang diisi!
+    const isOpening = visible && !prevVisibleRef.current;
+    const isItemChanged = visible && menuItem?.id !== prevMenuItemIdRef.current;
+
+    if (isOpening || isItemChanged) {
+      if (menuItem) {
+        setName(menuItem.name);
+        setPriceText(formatRupiahInput(menuItem.price));
+        setSelectedCatId(menuItem.category_id);
+        setTrackStock(menuItem.track_stock === 1);
+        setStockText(menuItem.stock.toString());
+        setBarcode(menuItem.barcode || '');
+        setPhotoUri(menuItem.image_path || null);
+      } else {
+        setName('');
+        setPriceText('');
+        setSelectedCatId(categories.length > 0 ? categories[0].id : null);
+        setTrackStock(false);
+        setStockText('0');
+        setBarcode('');
+        setPhotoUri(null);
+      }
     }
-  }, [menuItem, visible, categories]);
+
+    prevVisibleRef.current = visible;
+    prevMenuItemIdRef.current = menuItem?.id ?? null;
+  }, [visible, menuItem]);
 
   const handlePickImage = async () => {
     Alert.alert('Foto Menu Angkringan', 'Pilih sumber gambar:', [
@@ -150,7 +166,11 @@ export function MenuFormModal({ visible, menuItem, onClose }: MenuFormModalProps
     try {
       let finalPhotoPath = '';
       if (photoUri) {
-        finalPhotoPath = await saveImageLocally(photoUri, 'menus');
+        if (menuItem && photoUri === menuItem.image_path) {
+          finalPhotoPath = menuItem.image_path;
+        } else {
+          finalPhotoPath = await saveImageLocally(photoUri, 'menus');
+        }
       }
 
       if (menuItem) {
@@ -187,18 +207,26 @@ export function MenuFormModal({ visible, menuItem, onClose }: MenuFormModalProps
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <View style={styles.modalBox}>
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.title}>
-              {menuItem ? 'Edit Menu Angkringan' : '+ Tambah Menu Baru'}
-            </Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Text style={styles.closeBtnText}>✕</Text>
-            </TouchableOpacity>
-          </View>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.keyboardAvoid}
+        >
+          <View style={styles.modalBox}>
+            {/* Header */}
+            <View style={styles.header}>
+              <Text style={styles.title}>
+                {menuItem ? 'Edit Menu Angkringan' : '+ Tambah Menu Baru'}
+              </Text>
+              <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+                <Text style={styles.closeBtnText}>✕</Text>
+              </TouchableOpacity>
+            </View>
 
-          <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
+            <ScrollView
+              style={styles.body}
+              contentContainerStyle={styles.bodyContent}
+              keyboardShouldPersistTaps="handled"
+            >
             {/* Foto Menu */}
             <View style={styles.photoSection}>
               {photoUri ? (
@@ -267,6 +295,14 @@ export function MenuFormModal({ visible, menuItem, onClose }: MenuFormModalProps
                 </TouchableOpacity>
               </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catScroll}>
+                <TouchableOpacity
+                  style={[styles.catPill, selectedCatId === null && styles.catPillActive]}
+                  onPress={() => setSelectedCatId(null)}
+                >
+                  <Text style={[styles.catPillText, selectedCatId === null && styles.catPillTextActive]}>
+                    Tanpa Kategori
+                  </Text>
+                </TouchableOpacity>
                 {categories.map((c) => {
                   const isSelected = selectedCatId === c.id;
                   return (
@@ -313,45 +349,68 @@ export function MenuFormModal({ visible, menuItem, onClose }: MenuFormModalProps
                 </TouchableOpacity>
               </View>
 
-              {trackStock && (
-                <View style={{ marginTop: 10 }}>
+              <View style={{ marginTop: 12 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                   <Text style={styles.subLabel}>Sisa Stok Tersedia (Porsi / Tusuk):</Text>
-                  <View style={styles.stepperContainer}>
-                    <TouchableOpacity
-                      style={styles.stepperBtn}
-                      onPress={() => adjustStock(-5)}
-                    >
-                      <Text style={styles.stepperBtnText}>-5</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.stepperBtn}
-                      onPress={() => adjustStock(-1)}
-                    >
-                      <Text style={styles.stepperBtnText}>-1</Text>
-                    </TouchableOpacity>
-                    <TextInput
-                      style={styles.stockInput}
-                      placeholder="0"
-                      placeholderTextColor={Colors.textMuted}
-                      keyboardType="numeric"
-                      value={stockText}
-                      onChangeText={(txt) => setStockText(txt.replace(/\D/g, ''))}
-                    />
-                    <TouchableOpacity
-                      style={styles.stepperBtn}
-                      onPress={() => adjustStock(1)}
-                    >
-                      <Text style={styles.stepperBtnText}>+1</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.stepperBtn}
-                      onPress={() => adjustStock(5)}
-                    >
-                      <Text style={styles.stepperBtnText}>+5</Text>
-                    </TouchableOpacity>
-                  </View>
+                  {!trackStock && (
+                    <Text style={{ fontSize: 11, color: Colors.textMuted, fontStyle: 'italic' }}>
+                      (Mode Unlimited aktif)
+                    </Text>
+                  )}
                 </View>
-              )}
+                <View style={styles.stepperContainer}>
+                  <TouchableOpacity
+                    style={styles.stepperBtn}
+                    onPress={() => {
+                      if (!trackStock) setTrackStock(true);
+                      adjustStock(-5);
+                    }}
+                  >
+                    <Text style={styles.stepperBtnText}>-5</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.stepperBtn}
+                    onPress={() => {
+                      if (!trackStock) setTrackStock(true);
+                      adjustStock(-1);
+                    }}
+                  >
+                    <Text style={styles.stepperBtnText}>-1</Text>
+                  </TouchableOpacity>
+                  <TextInput
+                    style={styles.stockInput}
+                    placeholder="0"
+                    placeholderTextColor={Colors.textMuted}
+                    keyboardType="numeric"
+                    value={stockText}
+                    onChangeText={(txt) => {
+                      const cleaned = txt.replace(/\D/g, '');
+                      setStockText(cleaned);
+                      if (cleaned && parseInt(cleaned, 10) > 0 && !trackStock) {
+                        setTrackStock(true);
+                      }
+                    }}
+                  />
+                  <TouchableOpacity
+                    style={styles.stepperBtn}
+                    onPress={() => {
+                      if (!trackStock) setTrackStock(true);
+                      adjustStock(1);
+                    }}
+                  >
+                    <Text style={styles.stepperBtnText}>+1</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.stepperBtn}
+                    onPress={() => {
+                      if (!trackStock) setTrackStock(true);
+                      adjustStock(5);
+                    }}
+                  >
+                    <Text style={styles.stepperBtnText}>+5</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
             </Card>
 
             {/* Barcode / SKU */}
@@ -386,7 +445,7 @@ export function MenuFormModal({ visible, menuItem, onClose }: MenuFormModalProps
               style={{ flex: menuItem ? 1.5 : 1 }}
             />
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </View>
 
       {/* Android-native Category Form Dialog */}
@@ -407,13 +466,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
   },
-  modalBox: {
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
+  keyboardAvoid: {
     width: '100%',
     maxWidth: 540,
+    height: '85%',
     maxHeight: '90%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalBox: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    width: '100%',
+    height: '100%',
+    maxHeight: '100%',
     display: 'flex',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
   },
   header: {
     flexDirection: 'row',

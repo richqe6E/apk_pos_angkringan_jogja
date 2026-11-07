@@ -59,3 +59,62 @@ Acknowledged. Proceed with synthesizing the comprehensive audit findings and str
 
 ## 2026-11-07T04:03:54Z
 Audit findings and structured work plan (Requirement R1) have been received and presented to the caller. Rencana perbaikan disetujui. Silakan lanjutkan eksekusi Dual Track (E2E Testing Track dan Implementasi Milestone 1-4) sesuai rencana kerja yang telah disajikan.
+
+
+## 2026-11-07T10:28:38Z
+
+Lakukan pemeriksaan mendalam, perbaikan bug fungsional tombol dan modal form, penyesuaian alur operasional, serta penambahan fitur operasional pada aplikasi POS Angkringan sesuai hasil pengujian operasional.
+
+Working directory: d:\apk pos angkringan jogja\apk_pos_angkringan_jogja
+Integrity mode: development
+
+## Requirements
+
+### R1. Perbaikan Bug Pengelolaan Menu
+- Menu bawaan aplikasi harus dapat dihapus secara permanen sesuai kebutuhan operasional pemilik usaha.
+- Form Tambah Menu baru harus menampilkan seluruh komponen input data barang secara lengkap dan data yang diisi dapat tersimpan dengan benar.
+- Form Edit Menu harus menampilkan komponen input data barang lengkap beserta data menu yang telah tersimpan sebelumnya, dan perubahan data dapat disimpan dengan benar.
+- Fitur Quick Edit Menu (tekan dan tahan menu pada kasir) harus menampilkan form perubahan data menu lengkap (seperti harga jual, stok, dll.), bukan hanya tombol Hapus Menu, Batal, dan Simpan Perubahan.
+
+### R2. Perbaikan Tombol Bagian Kanan Atas dan Modal Form di Seluruh Modul
+Lakukan pemeriksaan dan perbaikan pada event handler, pemanggilan form/modal, validasi input, dan fungsi penyimpanan data pada tombol-tombol kanan atas berikut:
+- Modul Menu: Tombol Kategori menampilkan form/modal pengelolaan kategori produk.
+- Modul Riwayat: Tombol Unduh PDF dan Tombol Unduh CSV menjalankan fungsi ekspor data riwayat transaksi ke format PDF dan CSV.
+- Modul Absensi: Tombol Tambah Karyawan menampilkan form pendaftaran karyawan baru dan menyimpan data karyawan.
+- Modul Keuangan: Tombol HPP Global menampilkan form/modal pengaturan HPP global dan menyimpan perubahannya.
+- Modul Manajemen Customer: Tombol Atur Tingkatan Reward menampilkan form pengaturan tingkatan reward (nominal pembelian dan keterangan hadiah) dan menyimpan data reward.
+- Modul Supplier: Tombol Supplier Baru menampilkan form tambah data supplier baru dan menyimpan data supplier.
+- Modul Supplier: Fitur Catat Pembelian Bahan menampilkan form pencatatan pembelian bahan/barang dan tersimpan terintegrasi dengan pencatatan pengeluaran kas atau utang supplier sesuai jenis transaksi.
+
+### R3. Evaluasi Fitur Struk Tagihan Sementara
+- Buat laporan evaluasi tertulis mengenai fungsi dan tujuan penggunaan struk tagihan sementara dalam alur kasir (membandingkannya dengan transaksi pending nomor meja serta pencetakan struk customer, kasir, dan kitchen).
+- Evaluasi apakah fitur ini relevan dipertahankan atau dihapus agar tidak menambah kompleksitas alur kasir.
+
+### R4. Pengelolaan Meja Dinamis
+- Pemilik usaha dapat menambahkan meja baru, mengubah nama meja, dan mengubah nomor meja secara dinamis (data meja tidak permanen/hardcoded).
+- Perubahan data meja harus terintegrasi langsung dengan pemilihan meja dan mekanisme transaksi pending pada modul kasir.
+
+### R5. Pemilihan Identitas Kasir
+- Menampilkan dialog/pemilihan nama kasir dari daftar karyawan yang sudah terdaftar sebelum aktivitas operasional kasir dimulai.
+- Identitas kasir yang dipilih harus tercatat pada setiap transaksi penjualan yang dijalankan.
+- Nama kasir harus dicantumkan pada struk penjualan customer dan struk audit internal kasir.
+
+### R6. Tampilan Rekap Absensi Berbasis Kalender
+- Mengubah tampilan riwayat/rekap absensi karyawan menjadi tampilan kalender bulanan interaktif.
+- Setiap tanggal pada kalender dapat dipilih/diklik untuk menampilkan data rincian absensi seluruh karyawan pada tanggal tersebut.
+
+### R7. Pengaturan Pembayaran QRIS dan Multi-Rekening Transfer
+- Modul Pengaturan menyediakan fitur untuk mengunggah atau menyimpan foto QRIS toko, yang otomatis ditampilkan pada layar kasir ketika metode pembayaran QRIS dipilih.
+- Modul Pengaturan menyediakan fitur untuk menyimpan multi-rekening bank pemilik usaha (nomor rekening dan identitas rekening), yang otomatis ditampilkan sebagai pilihan rekening tujuan transfer pada layar kasir ketika metode transfer dipilih.
+- Menyusun laporan analisis tertulis dan beberapa alternatif pendekatan integrasi data penerimaan bank untuk didiskusikan lebih lanjut, tanpa langsung mengimplementasikan integrasi perbankan.
+
+### R8. Laporan Audit, Kualitas Kode, dan Stabilitas Sistem
+- Pertahankan fungsi dan logika bisnis yang sudah berjalan, serta jaga konsistensi data tanpa mengubah struktur database tanpa kebutuhan jelas.
+- Lakukan audit kualitas kode dan verifikasi menggunakan kaidah /ponytail-audit dan /ponytail-review.
+- Menyusun laporan akhir pelaksanaan perbaikan yang mencakup:
+  1. Daftar bug yang ditemukan
+  2. Penyebab utama (root cause) setiap bug
+  3. Perubahan yang dilakukan
+  4. Status keberhasilan perbaikan
+  5. Hasil pengujian setiap fitur
+  6. Masalah yang masih belum terselesaikan (jika ada)

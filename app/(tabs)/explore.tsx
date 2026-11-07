@@ -20,7 +20,7 @@ import { Button } from '../../components/ui/button';
 import { formatRupiahDisplay } from '../../utils/formatRupiah';
 import { MenuItem, useMenuStore } from '../../stores/menuStore';
 import { MenuFormModal } from '../../components/menu-form-modal';
-import { CategoryFormModal } from '../../components/category-form-modal';
+import { CategoryManagementModal } from '../../components/category-management-modal';
 
 export default function ExploreMenuScreen() {
   const db = useSQLiteContext();
@@ -241,11 +241,11 @@ export default function ExploreMenuScreen() {
         onClose={() => setMenuModalVisible(false)}
       />
 
-      {/* Android-native Category Add Dialog */}
-      <CategoryFormModal
+      {/* Comprehensive Category Management Modal */}
+      <CategoryManagementModal
         visible={categoryModalVisible}
         onClose={() => setCategoryModalVisible(false)}
-        onSuccess={(newId) => setSelectedCategoryId(newId)}
+        onSelectCategory={(newId) => setSelectedCategoryId(newId)}
       />
     </View>
   );

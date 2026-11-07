@@ -9,10 +9,13 @@ import {
   Alert,
   Switch,
   ActivityIndicator,
+  Image,
+  Modal,
 } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
+import * as ImagePicker from 'expo-image-picker';
 import { Colors } from '../../constants/theme';
 import { RealtimeClockBadge } from '../../components/realtime-clock-badge';
 import { Card } from '../../components/ui/card';
@@ -22,11 +25,19 @@ import { withSqliteRetry } from '../../services/database';
 import { usePrinterStore } from '../../stores/printerStore';
 import { PrinterManagementModal } from '../../components/printer-management-modal';
 import { AdminPinModal } from '../../components/admin-pin-modal';
+import { saveImageLocally } from '../../utils/imageStorage';
 import {
   exportDatabaseToJson,
   restoreDatabaseFromJson,
   clearTransactionsAndAttendance,
 } from '../../services/backup';
+
+export interface BankAccount {
+  id: string;
+  bank_name: string;
+  account_number: string;
+  account_holder: string;
+}
 
 export default function SettingsScreen() {
   const db = useSQLiteContext();
@@ -46,6 +57,17 @@ export default function SettingsScreen() {
   const [receiptFooter, setReceiptFooter] = useState('Matur Nuwun Sampun Rawuh!');
   const [adminPin, setAdminPin] = useState('123456');
   const [newAdminPin, setNewAdminPin] = useState('');
+
+  // QRIS State
+  const [qrisImagePath, setQrisImagePath] = useState<string | null>(null);
+  const [isPickingQris, setIsPickingQris] = useState(false);
+
+  // Multi-Bank Accounts State
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  const [bankModalVisible, setBankModalVisible] = useState(false);
+  const [newBankName, setNewBankName] = useState('');
+  const [newAccountNumber, setNewAccountNumber] = useState('');
+  const [newAccountHolder, setNewAccountHolder] = useState('');
 
   const [printerModalVisible, setPrinterModalVisible] = useState(false);
   const [adminPinModalVisible, setAdminPinModalVisible] = useState(false);
@@ -73,10 +95,152 @@ export default function SettingsScreen() {
         if (row.key === 'store_phone') setStorePhone(row.value);
         if (row.key === 'receipt_footer') setReceiptFooter(row.value);
         if (row.key === 'admin_pin') setAdminPin(row.value);
+        if (row.key === 'qris_image_path') setQrisImagePath(row.value || null);
+        if (row.key === 'bank_accounts') {
+          try {
+            const parsed = JSON.parse(row.value);
+            if (Array.isArray(parsed)) setBankAccounts(parsed);
+          } catch (err) {
+            console.warn('Gagal parse bank_accounts:', err);
+          }
+        }
       });
     } catch (err) {
       console.error('Error loading settings:', err);
     }
+  };
+
+  // QRIS Handlers
+  const handlePickQrisImage = async () => {
+    try {
+      setIsPickingQris(true);
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: false,
+        quality: 0.85,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const selectedUri = result.assets[0].uri;
+        const savedUri = await saveImageLocally(selectedUri, 'logo');
+        await withSqliteRetry(() =>
+          db.runAsync(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES ('qris_image_path', ?)",
+            [savedUri]
+          )
+        );
+        setQrisImagePath(savedUri);
+        Alert.alert('Sukses', 'Foto QRIS toko berhasil disimpan dan siap ditampilkan di layar kasir.');
+      }
+    } catch (err: any) {
+      Alert.alert('Gagal Memilih Foto', err?.message || 'Terjadi kesalahan saat memilih foto QRIS.');
+    } finally {
+      setIsPickingQris(false);
+    }
+  };
+
+  const handleDeleteQrisImage = () => {
+    Alert.alert(
+      'Konfirmasi Hapus QRIS',
+      'Apakah Anda yakin ingin menghapus foto QRIS toko? Kasir tidak akan dapat menampilkan QRIS ke pelanggan hingga foto baru diunggah.',
+      [
+        { text: 'Batal', style: 'cancel' },
+        {
+          text: 'Hapus',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await withSqliteRetry(() =>
+                db.runAsync(
+                  "INSERT OR REPLACE INTO settings (key, value) VALUES ('qris_image_path', '')"
+                )
+              );
+              setQrisImagePath(null);
+              Alert.alert('Sukses', 'Foto QRIS berhasil dihapus.');
+            } catch (err: any) {
+              Alert.alert('Gagal Menghapus', err?.message || 'Terjadi kesalahan.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Multi-Bank Handlers
+  const handleOpenAddBankModal = () => {
+    setNewBankName('');
+    setNewAccountNumber('');
+    setNewAccountHolder('');
+    setBankModalVisible(true);
+  };
+
+  const handleSaveBankAccount = async () => {
+    if (!newBankName.trim()) {
+      Alert.alert('Perhatian', 'Nama bank wajib diisi atau dipilih dari tombol pilihan cepat.');
+      return;
+    }
+    if (!newAccountNumber.trim()) {
+      Alert.alert('Perhatian', 'Nomor rekening wajib diisi.');
+      return;
+    }
+    if (!newAccountHolder.trim()) {
+      Alert.alert('Perhatian', 'Nama pemilik rekening (a.n.) wajib diisi.');
+      return;
+    }
+
+    const newAccount: BankAccount = {
+      id: Date.now().toString(),
+      bank_name: newBankName.trim(),
+      account_number: newAccountNumber.trim(),
+      account_holder: newAccountHolder.trim(),
+    };
+
+    const updated = [...bankAccounts, newAccount];
+    try {
+      await withSqliteRetry(() =>
+        db.runAsync(
+          "INSERT OR REPLACE INTO settings (key, value) VALUES ('bank_accounts', ?)",
+          [JSON.stringify(updated)]
+        )
+      );
+      setBankAccounts(updated);
+      setBankModalVisible(false);
+      setNewBankName('');
+      setNewAccountNumber('');
+      setNewAccountHolder('');
+      Alert.alert('Sukses', `Rekening ${newAccount.bank_name} berhasil didaftarkan.`);
+    } catch (err: any) {
+      Alert.alert('Gagal Menyimpan', err?.message || 'Terjadi kesalahan sistem.');
+    }
+  };
+
+  const handleDeleteBankAccount = (id: string, bankName: string, accNum: string) => {
+    Alert.alert(
+      'Konfirmasi Hapus Rekening',
+      `Apakah Anda yakin ingin menghapus rekening ${bankName} (${accNum}) dari daftar?`,
+      [
+        { text: 'Batal', style: 'cancel' },
+        {
+          text: 'Hapus',
+          style: 'destructive',
+          onPress: async () => {
+            const updated = bankAccounts.filter((b) => b.id !== id);
+            try {
+              await withSqliteRetry(() =>
+                db.runAsync(
+                  "INSERT OR REPLACE INTO settings (key, value) VALUES ('bank_accounts', ?)",
+                  [JSON.stringify(updated)]
+                )
+              );
+              setBankAccounts(updated);
+              Alert.alert('Sukses', 'Rekening bank berhasil dihapus.');
+            } catch (err: any) {
+              Alert.alert('Gagal Menghapus', err?.message || 'Terjadi kesalahan.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleSaveProfile = async () => {
@@ -280,7 +444,119 @@ export default function SettingsScreen() {
           </View>
         </Card>
 
-        {/* Section 2: Multi-Printer Bluetooth */}
+        {/* Section 2: Pembayaran QRIS Toko */}
+        <Card style={styles.cardSection}>
+          <View style={styles.sectionHeaderRow}>
+            <View style={{ flex: 1, marginRight: 12 }}>
+              <Text style={styles.sectionTitle}>Pembayaran QRIS Toko (Merchant QRIS)</Text>
+              <Text style={styles.sectionSubtitle}>
+                Unggah gambar/barcode QRIS toko untuk ditampilkan langsung di layar kasir saat pelanggan membayar via QRIS
+              </Text>
+            </View>
+            <Badge
+              label={qrisImagePath ? 'QRIS Aktif' : 'Belum Ada'}
+              variant={qrisImagePath ? 'success' : 'neutral'}
+            />
+          </View>
+
+          {qrisImagePath ? (
+            <View style={styles.qrisCardContainer}>
+              <View style={styles.qrisImageWrapper}>
+                <Image
+                  source={{ uri: qrisImagePath }}
+                  style={styles.qrisImagePreview}
+                  resizeMode="contain"
+                />
+              </View>
+              <View style={styles.qrisInfoWrapper}>
+                <Text style={styles.qrisStatusTitle}>Foto QRIS Siap Digunakan</Text>
+                <Text style={styles.qrisStatusDesc}>
+                  Kasir dapat memunculkan barcode QRIS ini secara penuh agar pelanggan mudah melakukan scan pembayaran dengan semua aplikasi e-wallet (GoPay, OVO, Dana, ShopeePay) & m-Banking.
+                </Text>
+                <View style={styles.qrisActionBtnRow}>
+                  <Button
+                    title="Ganti Foto QRIS"
+                    variant="outline"
+                    size="sm"
+                    loading={isPickingQris}
+                    onPress={handlePickQrisImage}
+                    style={{ flex: 1 }}
+                  />
+                  <Button
+                    title="Hapus QRIS"
+                    variant="danger"
+                    size="sm"
+                    onPress={handleDeleteQrisImage}
+                    style={{ flex: 1 }}
+                  />
+                </View>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.qrisPlaceholderContainer}>
+              <Text style={{ fontSize: 40, marginBottom: 8 }}>📱</Text>
+              <Text style={styles.placeholderTitle}>Belum Ada Foto QRIS Toko</Text>
+              <Text style={styles.placeholderSubtitle}>
+                Unggah foto stiker atau tangkapan layar barcode QRIS dari BCA, Mandiri, BRI, GoPay, ShopeePay, atau merchant aggregator Anda.
+              </Text>
+              <Button
+                title="+ Pilih Foto QRIS dari Galeri"
+                variant="primary"
+                loading={isPickingQris}
+                onPress={handlePickQrisImage}
+                style={{ marginTop: 12 }}
+              />
+            </View>
+          )}
+        </Card>
+
+        {/* Section 3: Rekening Bank Toko (Multi-Bank Transfer) */}
+        <Card style={styles.cardSection}>
+          <View style={styles.sectionHeaderRow}>
+            <View style={{ flex: 1, marginRight: 12 }}>
+              <Text style={styles.sectionTitle}>Rekening Bank Toko (Multi-Bank Transfer)</Text>
+              <Text style={styles.sectionSubtitle}>
+                Daftar rekening tujuan transfer untuk mempermudah kasir menampilkan nomor rekening dan pemilik ke pelanggan
+              </Text>
+            </View>
+            <Button
+              title="+ Tambah Rekening"
+              variant="outline"
+              size="sm"
+              onPress={handleOpenAddBankModal}
+            />
+          </View>
+
+          {bankAccounts.length === 0 ? (
+            <View style={styles.emptyBankContainer}>
+              <Text style={{ fontSize: 32, marginBottom: 6 }}>🏦</Text>
+              <Text style={styles.placeholderTitle}>Belum Ada Rekening Bank Didaftarkan</Text>
+              <Text style={styles.placeholderSubtitle}>
+                Daftarkan rekening bank toko (BCA, Mandiri, BRI, BNI, dll) agar kasir dapat memilih rekening saat metode transfer dipilih.
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.bankGrid}>
+              {bankAccounts.map((account) => (
+                <View key={account.id} style={styles.bankItemCard}>
+                  <View style={styles.bankItemHeader}>
+                    <Badge label={account.bank_name.toUpperCase()} variant="info" size="sm" />
+                    <TouchableOpacity
+                      onPress={() => handleDeleteBankAccount(account.id, account.bank_name, account.account_number)}
+                      style={styles.deleteBankBtn}
+                    >
+                      <Text style={styles.deleteBankBtnText}>✕ Hapus</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={styles.bankAccountNumber} selectable>{account.account_number}</Text>
+                  <Text style={styles.bankAccountHolder}>a.n. {account.account_holder}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </Card>
+
+        {/* Section 4: Multi-Printer Bluetooth */}
         <Card style={styles.cardSection}>
           <View style={styles.sectionHeaderRow}>
             <View>
@@ -448,6 +724,105 @@ export default function SettingsScreen() {
         }}
         onSuccess={handleAdminPinSuccess}
       />
+
+      {/* Modal Tambah Rekening Bank */}
+      <Modal
+        visible={bankModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setBankModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <Card style={styles.bankModalCard}>
+            <View style={styles.bankModalHeader}>
+              <View>
+                <Text style={styles.bankModalTitle}>Tambah Rekening Bank Toko</Text>
+                <Text style={styles.bankModalSubtitle}>
+                  Daftarkan nomor rekening tujuan transfer pembayaran
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setBankModalVisible(false)}
+                style={styles.modalCloseBtn}
+              >
+                <Text style={styles.modalCloseBtnText}>✕ Batal</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.label}>Pilihan Bank Populer:</Text>
+            <View style={styles.presetBankRow}>
+              {['BCA', 'Mandiri', 'BRI', 'BNI', 'BSI', 'BCA Syariah', 'CIMB Niaga'].map((bank) => (
+                <TouchableOpacity
+                  key={bank}
+                  style={[
+                    styles.presetBankChip,
+                    newBankName.toUpperCase() === bank.toUpperCase() && styles.presetBankChipActive,
+                  ]}
+                  onPress={() => setNewBankName(bank)}
+                >
+                  <Text
+                    style={[
+                      styles.presetBankChipText,
+                      newBankName.toUpperCase() === bank.toUpperCase() && styles.presetBankChipTextActive,
+                    ]}
+                  >
+                    {bank}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Nama Bank / Dompet Digital</Text>
+              <TextInput
+                style={styles.textInput}
+                value={newBankName}
+                onChangeText={setNewBankName}
+                placeholder="Contoh: BCA / Mandiri / SeaBank"
+                placeholderTextColor={Colors.textMuted}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Nomor Rekening</Text>
+              <TextInput
+                style={styles.textInput}
+                value={newAccountNumber}
+                onChangeText={setNewAccountNumber}
+                placeholder="Contoh: 1234567890"
+                placeholderTextColor={Colors.textMuted}
+                keyboardType="numeric"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Nama Pemilik Rekening (Atas Nama / a.n.)</Text>
+              <TextInput
+                style={styles.textInput}
+                value={newAccountHolder}
+                onChangeText={setNewAccountHolder}
+                placeholder="Contoh: Angkringan Jogja / Budi Santoso"
+                placeholderTextColor={Colors.textMuted}
+              />
+            </View>
+
+            <View style={styles.bankModalActionRow}>
+              <Button
+                title="Batal"
+                variant="ghost"
+                onPress={() => setBankModalVisible(false)}
+                style={{ flex: 1 }}
+              />
+              <Button
+                title="Simpan Rekening"
+                variant="primary"
+                onPress={handleSaveBankAccount}
+                style={{ flex: 1.5 }}
+              />
+            </View>
+          </Card>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -595,5 +970,202 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderLeftColor: Colors.danger,
     backgroundColor: '#fef2f2',
+  },
+  // QRIS Styles
+  qrisCardContainer: {
+    flexDirection: 'row',
+    gap: 16,
+    backgroundColor: Colors.background,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: 14,
+    alignItems: 'center',
+  },
+  qrisImageWrapper: {
+    width: 140,
+    height: 140,
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 6,
+  },
+  qrisImagePreview: {
+    width: '100%',
+    height: '100%',
+  },
+  qrisInfoWrapper: {
+    flex: 1,
+    gap: 6,
+  },
+  qrisStatusTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: Colors.text,
+  },
+  qrisStatusDesc: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    lineHeight: 16,
+  },
+  qrisActionBtnRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+  },
+  qrisPlaceholderContainer: {
+    backgroundColor: Colors.background,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderStyle: 'dashed',
+    padding: 24,
+    alignItems: 'center',
+  },
+  placeholderTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: Colors.text,
+  },
+  placeholderSubtitle: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    marginTop: 4,
+    maxWidth: 400,
+    lineHeight: 16,
+  },
+  // Multi-Bank Styles
+  emptyBankContainer: {
+    backgroundColor: Colors.background,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderStyle: 'dashed',
+    padding: 20,
+    alignItems: 'center',
+  },
+  bankGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  bankItemCard: {
+    flex: 1,
+    minWidth: 260,
+    backgroundColor: Colors.background,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 8,
+    padding: 12,
+  },
+  bankItemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  deleteBankBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+    backgroundColor: Colors.dangerBg,
+  },
+  deleteBankBtnText: {
+    fontSize: 11,
+    color: Colors.danger,
+    fontWeight: '700',
+  },
+  bankAccountNumber: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: Colors.text,
+    letterSpacing: 1,
+    fontFamily: 'monospace',
+    marginBottom: 2,
+  },
+  bankAccountHolder: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    fontWeight: '600',
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  bankModalCard: {
+    width: '100%',
+    maxWidth: 520,
+    padding: 20,
+    backgroundColor: '#ffffff',
+    borderRadius: 10,
+  },
+  bankModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    paddingBottom: 12,
+    marginBottom: 14,
+  },
+  bankModalTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: Colors.text,
+  },
+  bankModalSubtitle: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    marginTop: 2,
+  },
+  modalCloseBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 4,
+    backgroundColor: Colors.borderLight,
+  },
+  modalCloseBtnText: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    fontWeight: '700',
+  },
+  presetBankRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 14,
+  },
+  presetBankChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: Colors.background,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  presetBankChipActive: {
+    backgroundColor: Colors.primarySoft,
+    borderColor: Colors.primary,
+  },
+  presetBankChipText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+  },
+  presetBankChipTextActive: {
+    color: Colors.primaryDark,
+  },
+  bankModalActionRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 10,
   },
 });

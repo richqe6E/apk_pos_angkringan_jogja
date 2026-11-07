@@ -143,6 +143,13 @@ export const usePurchaseStore = create<PurchaseState>((set, get) => ({
   },
 
   recordPurchase: async (db, input) => {
+    if (!input.supplier_id || !input.supplier_name.trim()) {
+      throw new Error('Harap pilih supplier atau toko tempat pembelian.');
+    }
+    if (!input.total_amount || input.total_amount <= 0) {
+      throw new Error('Nominal pembelian harus lebih dari Rp 0.');
+    }
+
     const businessDate = getBusinessDate();
     let savedPhotoPath = '';
 
@@ -236,7 +243,14 @@ export const usePurchaseStore = create<PurchaseState>((set, get) => ({
 
   deletePurchase: async (db, purchaseId) => {
     await withSqliteRetry(() =>
-      db.runAsync('DELETE FROM purchases WHERE id = ?', [purchaseId])
+      db.withTransactionAsync(async () => {
+        // Clean up related cash_ledger entries (for cash purchases or settled tempo debts)
+        await db.runAsync(
+          'DELETE FROM cash_ledger WHERE notes LIKE ? OR notes LIKE ?',
+          [`%(ID Pembelian: #${purchaseId})%`, `%Pelunasan hutang nota #${purchaseId}%`]
+        );
+        await db.runAsync('DELETE FROM purchases WHERE id = ?', [purchaseId]);
+      })
     );
     await get().loadPurchases(db);
     await get().loadSuppliers(db);

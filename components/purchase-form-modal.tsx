@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -9,6 +9,8 @@ import {
   ScrollView,
   Image,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useSQLiteContext } from 'expo-sqlite';
@@ -16,7 +18,7 @@ import { Colors } from '../constants/theme';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
-import { formatRupiahDisplay, parseRupiahInput } from '../utils/formatRupiah';
+import { formatRupiahDisplay, formatRupiahInput, parseRupiahInput } from '../utils/formatRupiah';
 import { Supplier, usePurchaseStore, CreatePurchaseInput } from '../stores/purchaseStore';
 import { SupplierModal } from './supplier-modal';
 
@@ -27,7 +29,7 @@ interface PurchaseFormModalProps {
 
 export function PurchaseFormModal({ visible, onClose }: PurchaseFormModalProps) {
   const db = useSQLiteContext();
-  const { suppliers, recordPurchase } = usePurchaseStore();
+  const { suppliers, loadSuppliers, recordPurchase } = usePurchaseStore();
 
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
   const [totalAmountText, setTotalAmountText] = useState('');
@@ -38,6 +40,12 @@ export function PurchaseFormModal({ visible, onClose }: PurchaseFormModalProps) 
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSupplierModal, setShowSupplierModal] = useState(false);
+
+  useEffect(() => {
+    if (visible && db) {
+      loadSuppliers(db).catch((e) => console.warn('Error loading suppliers:', e));
+    }
+  }, [visible, db]);
 
   const resetForm = () => {
     setSelectedSupplier(null);
@@ -57,6 +65,15 @@ export function PurchaseFormModal({ visible, onClose }: PurchaseFormModalProps) 
     const day = String(d.getDate()).padStart(2, '0');
     setDueDateString(`${y}-${m}-${day}`);
     setHasDueDate(true);
+  };
+
+  const handleTotalAmountChange = (txt: string) => {
+    const rawNum = parseRupiahInput(txt);
+    if (rawNum === 0 && txt.trim() === '') {
+      setTotalAmountText('');
+    } else {
+      setTotalAmountText(formatRupiahInput(rawNum));
+    }
   };
 
   const handlePickImage = async () => {
@@ -145,7 +162,10 @@ export function PurchaseFormModal({ visible, onClose }: PurchaseFormModalProps) 
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.overlay}>
+      <KeyboardAvoidingView
+        style={styles.overlay}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
         <View style={styles.modalBox}>
           {/* Header */}
           <View style={styles.header}>
@@ -160,7 +180,7 @@ export function PurchaseFormModal({ visible, onClose }: PurchaseFormModalProps) 
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
+          <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent} keyboardShouldPersistTaps="handled">
             {/* Pilihan Supplier */}
             <View style={styles.section}>
               <View style={styles.sectionHeaderRow}>
@@ -199,11 +219,11 @@ export function PurchaseFormModal({ visible, onClose }: PurchaseFormModalProps) 
               <Text style={styles.label}>Total Nominal Pembelian (Rp) *</Text>
               <TextInput
                 style={styles.amountInput}
-                placeholder="Contoh: 150000"
+                placeholder="Contoh: 150.000"
                 placeholderTextColor={Colors.textMuted}
                 keyboardType="numeric"
                 value={totalAmountText}
-                onChangeText={setTotalAmountText}
+                onChangeText={handleTotalAmountChange}
               />
               {parseRupiahInput(totalAmountText) > 0 && (
                 <Text style={styles.amountPreview}>
@@ -365,7 +385,7 @@ export function PurchaseFormModal({ visible, onClose }: PurchaseFormModalProps) 
             />
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
 
       {/* Supplier Modal */}
       <SupplierModal

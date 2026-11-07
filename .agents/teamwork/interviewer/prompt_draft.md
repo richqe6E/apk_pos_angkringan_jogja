@@ -1,51 +1,84 @@
-Perbaiki seluruh bug, integrasi terputus, dan fitur yang belum terealisasi pada aplikasi POS Angkringan Jogja sesuai PRD dan temuan audit, difokuskan murni untuk perangkat Android (tablet dan smartphone) dengan meniadakan seluruh percabangan/teknologi khusus iOS, diawali dengan penyajian hasil temuan audit dan rencana perbaikan menggunakan keahlian /ponytail-audit, /ponytail-debt, /ponytail-review, dan /ponytail-help sebelum eksekusi perbaikan kode.
+Perbaikan bug, integrasi alur operasional, dan penambahan fitur pada aplikasi POS Angkringan Jogja untuk kesiapan lingkungan produksi (operasional riil toko), disertai laporan analisis teknis dan evaluasi fungsional.
 
+Working directory: d:\apk pos angkringan jogja\apk_pos_angkringan_jogja
 Integrity mode: development
+
+## Verification Resources
+- Test suite yang tersedia di repositori: `npm test` (`test/*.test.ts`) dan dokumentasi `TEST_READY.md`.
 
 ## Requirements
 
-### R1. Tahap Audit Awal & Rencana Kerja
-Sajikan dokumen temuan audit komprehensif dan rencana perbaikan terstruktur mencakup seluruh temuan audit sebelumnya (bug kalkulasi laba bersih & kas masuk, struk kasir, manajemen meja & pending, upload gambar menu dan penyatuan editor menu, transaksi atomik database, pembersihan foto absensi, laporan keuangan/riwayat, integrasi pengaturan & printer, serta eliminasi kode khusus iOS) sebelum mulai mengubah kode implementasi.
+### R1. Perbaikan Fitur Manajemen Menu dan Quick Edit Kasir
+- Seluruh daftar menu (termasuk menu bawaan aplikasi) dapat dihapus dan dikelola sesuai kebutuhan operasional pemilik usaha.
+- Form tambah menu baru harus muncul lengkap dengan komponen input data barang dan dapat menyimpan data menu dengan benar.
+- Form edit menu harus menampilkan komponen input lengkap beserta data yang telah tersimpan sebelumnya.
+- Fitur quick edit menu (tekan dan tahan pada item menu di kasir) harus menampilkan input pengubahan data (harga jual, stok, dll.), tombol simpan, dan tombol hapus yang berfungsi normal.
 
-### R2. Integritas Data Keuangan, Struk Transaksi & Database
-Perbaiki penghitungan laba bersih agar penjualan tunai tidak terhitung ganda dan pastikan transaksi tunai tampil pada riwayat kas masuk. Perbaiki pencetakan struk dan preview transaksi agar menggunakan profil toko, footer, dan metode pembayaran aktual (Tunai, QRIS, Transfer) dari pengaturan. Bungkus operasi multi-query pada transaksi dan pembelian ke dalam transaksi database atomik. Perbaiki pembersihan file foto absensi agar benar-benar terhapus dari media penyimpanan. Muat otomatis pengaturan profil toko, pajak, dan printer saat aplikasi dimulai.
+### R2. Perbaikan Tombol Aksi Kanan Atas pada Seluruh Modul
+- Modul Menu: Tombol Kategori harus menampilkan modal/form pengelolaan kategori yang berfungsi.
+- Modul Riwayat: Tombol Unduh PDF dan Unduh CSV harus menjalankan fungsi ekspor data riwayat transaksi.
+- Modul Absensi: Tombol Tambah Karyawan harus memunculkan form/modal penambahan karyawan dan menyimpan datanya.
+- Modul Keuangan: Tombol HPP Global harus menampilkan form/fungsi pengaturan HPP.
+- Modul Manajemen Customer: Tombol Atur Tingkatan Reward harus memunculkan form untuk mengatur nominal pembelian dan keterangan hadiah reward.
+- Modul Supplier: Tombol Supplier Baru harus memunculkan form penambahan supplier baru dan menyimpannya.
 
-### R3. Manajemen Menu, Upload Foto Produk & Fokus Khusus Android
-Sediakan fitur upload gambar menu dengan penyimpanan lokal permanen dan tampilkan foto menu pada kartu menu. Satukan tombol 'Quick Edit' dan 'Edit' menjadi satu modal edit menu lengkap yang memungkinkan pengubahan seluruh atribut (foto, nama, harga, kategori, stok, barcode) baik dari halaman menu maupun saat mengelola menu dari halaman transaksi. Sediakan form tambah menu yang lengkap. Hapus dan bersihkan seluruh percabangan atau ketergantungan khusus iOS (seperti `Alert.prompt` dan pengecekan platform iOS) di seluruh sistem, dan ganti dengan solusi yang bekerja murni dan optimal untuk tablet/HP Android. Pada halaman transaksi, buat interaksi tahan produk (long-press) lebih cepat dan responsif untuk membuka editor produk.
+### R3. Evaluasi Fitur Struk Tagihan Sementara
+- Pertahankan kode fitur struk tagihan sementara tanpa menghapusnya terlebih dahulu.
+- Berikan penjelasan mendalam mengenai fungsi dan tujuan penggunaan struk tagihan sementara dalam alur transaksi aplikasi, serta evaluasi kebutuhan fitur tersebut di dalam laporan akhir.
 
-### R4. Manajemen Meja, Pesanan Pending & Tiket Dapur
-Perkuat fungsionalitas manajemen meja dan pesanan pending: penambahan pesanan sambungan pada meja aktif harus mencatat delta tambahan porsi menu (`is_additional = 1`) dan mendukung pencetakan tiket dapur/sambungan. Perbaiki penggabungan meja (`mergeTables`) agar tidak mereset pajak/diskon dan tidak menduplikasi menu yang sama. Lengkapi visibilitas status meja dan tagihan sementara.
+### R4. Manajemen Meja Dinamis dan Integrasi Kasir
+- Tambahkan fitur manajemen meja yang memungkinkan pemilik usaha menambah meja baru, mengedit nama meja, dan mengedit nomor meja.
+- Data meja tidak boleh ditetapkan secara permanen (hardcoded) oleh sistem, dan harus terintegrasi langsung dengan pemilihan meja serta transaksi pending pada modul kasir.
 
-### R5. Laporan Keuangan, Riwayat Transaksi & Ekspor Data
-Lengkapi pencatatan serta pelaporan kas masuk dan kas keluar sesuai PRD agar tersinkronisasi antara halaman Keuangan, Riwayat Transaksi, dan Ekspor CSV. Sediakan filter periode (Hari Ini, 7 Hari, 1 Bulan, Pilih Bulan/Tanggal) serta rincian pembayaran (Tunai, QRIS, Transfer). Pastikan transaksi pending dan merged tampil semestinya di riwayat transaksi.
+### R5. Pemilihan Identitas Kasir Operasional
+- Wajibkan alur pemilihan nama kasir sebelum memulai transaksi operasional kasir dari daftar karyawan terdaftar.
+- Identitas kasir yang dipilih harus tercatat pada transaksi penjualan, ditampilkan pada struk penjualan customer, dan dicantumkan pada struk audit internal kasir.
+
+### R6. Perbaikan Form Transaksi pada Customer dan Supplier
+- Form Atur Tingkatan Reward pada modul customer harus dapat dibuka, diisi (nominal pembelian dan keterangan hadiah), dan disimpan sesuai skema reward.
+- Form Catat Pembelian Bahan pada modul supplier harus dapat dibuka, mencatat bahan/barang yang dibeli, dan terintegrasi dengan pengeluaran kas atau utang supplier sesuai jenis transaksi.
+
+### R7. Rekap Absensi Berbasis Tampilan Kalender
+- Ubah tampilan riwayat absensi karyawan menjadi kalender bulanan interaktif.
+- Setiap tanggal pada kalender dapat dipilih untuk menampilkan rincian data absensi karyawan pada tanggal tersebut.
+
+### R8. Pengaturan Metode Pembayaran dan Analisis Integrasi Bank
+- QRIS: Pengaturan untuk mengunggah atau menyimpan foto QRIS toko dan menampilkannya otomatis di halaman pembayaran saat kasir memilih metode QRIS.
+- Transfer: Pengaturan untuk menyimpan beberapa rekening bank (nomor rekening dan data identitas rekening) dan menampilkannya otomatis di halaman pembayaran saat kasir memilih metode transfer.
+- Integrasi Bank: Jangan langsung mengimplementasikan integrasi perbankan; berikan analisis dan beberapa alternatif pendekatan metode integrasi data penerimaan bank di laporan akhir untuk dibahas lebih lanjut.
+
+### R9. Ketentuan Pelaksanaan, Audit Mutu, dan Pelaporan
+- Periksa akar penyebab setiap bug (event handler, form, modal, validasi input, integrasi penyimpanan data) sebelum melakukan perubahan kode.
+- Pertahankan fungsi dan logika bisnis lain yang sudah berjalan dengan baik, tanpa mengubah struktur database tanpa kebutuhan jelas.
+- Manfaatkan kemampuan analisis dan audit mutu (skill /plan, /ponytail-audit, /ponytail-gain).
+- Sediakan laporan akhir komprehensif berisi: daftar bug yang ditemukan, penyebab utama, perubahan yang dilakukan, status keberhasilan perbaikan, hasil pengujian setiap fitur, dan masalah yang belum terselesaikan.
 
 ## Acceptance Criteria
 
-### Audit & Rencana Kerja
-- [ ] Dokumen temuan audit dan rencana perbaikan disajikan secara terperinci mencakup seluruh area perbaikan sebelum modifikasi kode dilakukan.
+### Manajemen Menu & Quick Edit
+- [ ] Seluruh menu bawaan dapat dihapus dari sistem tanpa pesan galat atau kegagalan data.
+- [ ] Form tambah menu dan edit menu muncul dengan komponen input lengkap dan data tersimpan dengan benar.
+- [ ] Quick edit menu via tekan-dan-tahan menampilkan form input lengkap untuk edit harga/stok serta tombol simpan dan hapus berfungsi normal.
 
-### Integritas Transaksi & Data
-- [ ] Penjualan tunai tidak terhitung ganda pada kalkulasi laba bersih di financialStore.
-- [ ] Transaksi tunai muncul pada tab Kas Masuk di riwayat transaksi.
-- [ ] Struk kasir dan pratinjau struk mencetak metode bayar yang sesuai (Tunai, QRIS, Transfer) dan informasi toko dari settings.
-- [ ] Operasi multi-query pada transaksi dan pembelian menggunakan transaksi database (`db.withTransactionAsync`).
-- [ ] Pembersihan bulanan foto absensi menghapus file fisik di penyimpanan lokal.
-- [ ] Pengaturan profil toko, pajak PB1, dan printer tersimpan dimuat otomatis saat inisialisasi aplikasi.
+### Tombol Aksi Kanan Atas
+- [ ] Tombol Kategori (Menu), Unduh PDF/CSV (Riwayat), Tambah Karyawan (Absensi), HPP Global (Keuangan), Atur Tingkatan Reward (Customer), dan Supplier Baru (Supplier) memunculkan form/modal atau mengeksekusi fungsinya tanpa kegagalan.
 
-### Pengelolaan Menu & Kompatibilitas Android
-- [ ] Foto menu berhasil dipilih dari galeri/kamera, tersimpan permanen di penyimpanan lokal, dan tampil pada kartu menu.
-- [ ] Hanya terdapat satu modal edit menu komprehensif (edit foto, nama, harga, kategori, stok, barcode) yang dapat diakses dari menu maupun transaksi.
-- [ ] Seluruh percabangan dan ketergantungan khusus iOS (seperti `Alert.prompt` pada tambah kategori) dihilangkan dan diganti dengan implementasi modal/input yang berfungsi penuh di Android.
-- [ ] Aksi tahan produk (long-press) di halaman transaksi merespons cepat (delay sekitar 200ms) dan membuka modal edit menu.
+### Struk Tagihan Sementara & Analisis Bank
+- [ ] Fitur struk tagihan sementara tetap ada dan laporan akhir memuat penjelasan fungsi serta evaluasi relevansi fiturnya dalam alur transaksi kasir.
+- [ ] Laporan akhir menyajikan analisis mendalam dan alternatif pendekatan integrasi penerimaan dana bank tanpa implementasi sepihak.
 
-### Meja & Pending Order
-- [ ] Tambah pesanan sambungan pada meja pending menghasilkan tiket dapur/sambungan dan mencatat penambahan porsi sebagai item tambahan.
-- [ ] Penggabungan meja mempertahankan pengaturan pajak/diskon dan menggabungkan item menu yang sama tanpa duplikasi baris.
+### Manajemen Meja & Identitas Kasir
+- [ ] Pemilik usaha dapat menambah, mengedit nama, dan nomor meja baru; modul kasir dan transaksi pending menggunakan data meja dinamis ini.
+- [ ] Operasional kasir mewajibkan pemilihan kasir dari data karyawan terdaftar; nama kasir tercatat pada penjualan, struk customer, dan struk audit internal kasir.
 
-### Laporan Keuangan
-- [ ] Kas masuk dan kas keluar tercatat akurat dan sinkron antara halaman Keuangan, Riwayat Transaksi, dan file CSV hasil ekspor.
-- [ ] Filter periode laporan dan rincian metode pembayaran berfungsi akurat sesuai PRD.
+### Customer, Supplier & Absensi Kalender
+- [ ] Form Atur Tingkatan Reward dan Catat Pembelian Bahan terbuka serta menyimpan data dengan integrasi keuangan yang sesuai.
+- [ ] Rekap absensi menampilkan kalender bulanan dan memilih tanggal menampilkan data absensi tanggal tersebut secara akurat.
 
-### Verifikasi Otomatis
-- [ ] Pemeriksaan tipe TypeScript (`npx tsc --noEmit` atau sejenisnya) dan linter berjalan bersih tanpa error baru.
-- [ ] Automated test suite di proyek berjalan sukses untuk memverifikasi logika toko, kalkulasi finansial, dan transaksi pada target Android.
+### Pembayaran QRIS & Rekening Transfer
+- [ ] Foto QRIS dapat disimpan di pengaturan dan tampil otomatis pada pembayaran QRIS.
+- [ ] Data rekening bank dapat disimpan lebih dari satu dan pilihan rekening tampil pada pembayaran transfer.
+
+### Pengujian & Laporan
+- [ ] Seluruh pengujian otomatis yang relevan (`npm test`) berjalan sukses tanpa regresi.
+- [ ] Laporan perbaikan operasional disajikan lengkap sesuai format yang diminta mencakup penyebab, perubahan, hasil uji, dan evaluasi.

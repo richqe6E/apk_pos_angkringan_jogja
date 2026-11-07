@@ -1,90 +1,66 @@
-# Project: POS Angkringan Jogja (Pure Android)
+# Project: POS Angkringan Jogja — Kesiapan Lingkungan Produksi
 
 ## Architecture
-- **Framework**: React Native with Expo (SDK 54), TypeScript, Expo Router (file-based navigation).
-- **Target Platform**: Pure Android (smartphones and tablets), eliminating all iOS dependencies and platform branching.
-- **State Management**: Zustand stores (`stores/transactionStore.ts`, `stores/menuStore.ts`, `stores/financialStore.ts`, `stores/printerStore.ts`, `stores/attendanceStore.ts`, `stores/purchaseStore.ts`).
-- **Database Engine**: Local SQLite via `expo-sqlite` with atomic transactions (`db.withTransactionAsync`).
-- **File System**: `expo-file-system/legacy` for permanent image storage in `documentDirectory`.
-- **Thermal Printing**: ESC/POS formatting via Bluetooth SPP on Android.
-- **Testing Engine**: Built-in `node:test` and `node:assert` via Node v24 for fast headless unit and integration testing.
+- **Framework**: React Native with Expo Router (Offline-first, Pure Android Standalone)
+- **Database Engine**: Local SQLite via `expo-sqlite` (WAL mode, busy_timeout 10000ms, 15 relational tables)
+- **State Management**: Zustand stores (`menuStore`, `transactionStore`, `customerStore`, `purchaseStore`, `attendanceStore`, `financialStore`, `settingsStore`, `printerStore`)
+- **Test Infrastructure**: Native Node.js v24 `node:test` + `node:sqlite` in-memory test runner (`npm test`)
+- **Hardware Integration**: ESC/POS Bluetooth thermal printer (58mm/80mm), camera attendance, offline file sharing
 
 ## Feature Inventory
 | # | Feature | Description | Milestone | Source |
 |---|---------|-------------|-----------|--------|
-| 1 | Net Profit Fix | Fix double-counting of cash sales in `financialStore` | M1 | survey (R2) |
-| 2 | Cash In Sync | Unify cash sale type to `'income'` so it appears in 'Kas Masuk' tab | M1 | survey (R2) |
-| 3 | Receipt Info & Payment Method | Dynamic payment method (Tunai, QRIS, Transfer) & store profile in receipts | M1 | survey (R2) |
-| 4 | Database Atomic Transactions | Wrap multi-query writes in `db.withTransactionAsync` | M1 | survey (R2) |
-| 5 | Attendance Photo Cleanup | Delete physical files of expired months using DB-referenced paths | M1 | survey (R2) |
-| 6 | Settings Auto-Loading | Auto-load store profile, PB1 tax, and printer configs at app startup | M1 | survey (R2) |
-| 7 | Permanent Menu Photo Storage | Fix `file://` guard to ensure `saveImageLocally` writes to permanent storage | M2 | survey (R3) |
-| 8 | Unified Menu Editor Modal | Consolidate Quick Edit & Edit into single `MenuFormModal`, delete duplicate modal | M2 | survey (R3) |
-| 9 | Add-Menu Full Form | Comprehensive add-menu with image picker, barcode, stock, category | M2 | survey (R3) |
-| 10 | iOS Cruft & Alert.prompt Elimination | Replace `Alert.prompt` with Android modal, remove Courier iOS font hacks | M2 | survey (R3) |
-| 11 | Fast Long-Press on Transaction Screen | Reduce long-press delay to 200ms with haptics to open unified menu editor | M2 | survey (R3) |
-| 12 | Additional Orders ('Pesanan Sambungan') | Track baseline qty to mark delta items with `is_additional = 1` | M3 | survey (R4) |
-| 13 | Kitchen Ticket for Additional Orders | Trigger kitchen & delta ticket printing on pending save/update | M3 | survey (R4) |
-| 14 | Table Merge Fix | Deduplicate identical items, preserve discount & PB1 tax in `mergeTables` | M3 | survey (R4) |
-| 15 | Table Status & Temporary Bill | Add badges (Kosong, Terisi, Siap Bayar) and "Tagihan Sementara" print/preview | M3 | survey (R4) |
-| 16 | Financial Reports Period Filters | Add Hari Ini, 7 Hari, 1 Bulan, Pilih Bulan period filters | M4 | survey (R5) |
-| 17 | Payment Method Breakdown & CSV Export | Breakdown for Tunai, QRIS, Transfer in reports and CSV export | M4 | survey (R5) |
-| 18 | Pending & Merged History Visibility | Display pending and merged transactions with appropriate badges in history | M4 | survey (R5) |
-| 19 | Automated Test Suite (Tiers 1-4) | Native `node:test` suite covering financial, menu, table, and reports | M-E2E | survey (E2E) |
-| 20 | Final E2E Pass & Adversarial Hardening | 100% E2E test pass, adversarial Tier 5 tests, forensic audit clean | M-FINAL | final |
+| 1 | R1: Penghapusan Menu Bawaan | Menu bawaan & kustom dapat dihapus secara permanen tanpa FK constraint error dan tanpa re-seed | M1 | ORIGINAL_REQUEST §R1 |
+| 2 | R1: Form Tambah & Edit Menu | Input lengkap, initial values tidak ter-reset saat kategori bertambah, input stok tampil jelas | M1 | ORIGINAL_REQUEST §R1 |
+| 3 | R1: Quick Edit Menu Kasir | Tekan-lama (long press) pada katalog menu kasir memunculkan dialog edit harga, stok, tombol simpan & hapus | M1 | ORIGINAL_REQUEST §R1 |
+| 4 | R2: Tombol Aksi Kanan Atas | Perbaikan seluruh tombol kanan atas: Kategori (Menu), Unduh PDF/CSV (Riwayat), Tambah Karyawan (Absensi), HPP Global (Keuangan - fix syntax error), Atur Reward (Customer), Supplier Baru (Supplier) | M1 | ORIGINAL_REQUEST §R2 |
+| 5 | R4: Manajemen Meja Dinamis | Penambahan meja baru, edit nama meja, edit nomor meja tanpa hardcode, terintegrasi ke kasir & pending order | M2 | ORIGINAL_REQUEST §R4 |
+| 6 | R5: Identitas Kasir Operasional | Alur pemilihan kasir wajib sebelum operasional kasir, pencatatan di database transaksi dan pencantuman pada seluruh struk | M3 | ORIGINAL_REQUEST §R5 |
+| 7 | R6: Form Reward Customer | Form atur reward dapat dibuka, diisi (nominal belanja & hadiah), dan tersimpan | M4 | ORIGINAL_REQUEST §R6 |
+| 8 | R6: Form Pembelian Supplier | Form pembelian bahan dapat dibuka, mencatat bahan/supplier, terintegrasi dengan cash_ledger atau hutang tempo | M4 | ORIGINAL_REQUEST §R6 |
+| 9 | R7: Kalender Absensi Interaktif | Tampilan riwayat absensi berupa kalender bulanan interaktif dengan seleksi tanggal untuk melihat rincian kehadiran staf | M4 | ORIGINAL_REQUEST §R7 |
+| 10 | R8: Pengaturan Pembayaran QRIS | Foto QRIS toko tersimpan di settings dan tampil otomatis di modal pembayaran kasir | M4 | ORIGINAL_REQUEST §R8 |
+| 11 | R8: Pengaturan Multi-Rekening Transfer | Penyimpanan banyak rekening bank di settings dan pilihan rekening tampil di modal pembayaran kasir | M4 | ORIGINAL_REQUEST §R8 |
+| 12 | R3: Evaluasi Struk Tagihan Sementara | Mempertahankan kode tagihan sementara dan menyusun evaluasi mendalam fungsi operasional F&B di laporan akhir | M5 | ORIGINAL_REQUEST §R3 |
+| 13 | R8: Analisis Integrasi Bank | Analisis teknis 4 pendekatan integrasi perbankan tanpa implementasi sepihak di laporan akhir | M5 | ORIGINAL_REQUEST §R8 |
+| 14 | R9: Test Suite Tier 6 & Laporan Akhir | Pengujian otomatis komprehensif seluruh fitur operasional R1-R8 dan penyusunan laporan analisis teknis lengkap | M5 | ORIGINAL_REQUEST §R9 |
 
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
-| M0 | Survey & Ponytail Initial Audit & Plan | R1: Comprehensive audit findings & repair plan | none | DONE |
-| M-E2E | E2E Testing Suite (Tiers 1-4) | Automated headless test harness, test suites Tiers 1-4 | none | DONE |
-| M1 | Financial, Cash In & Transaction Integrity | R2: Net profit, cash in sync, receipts, DB transactions, photo cleanup, settings auto-load | M0 | DONE |
-| M2 | Menu Management & Pure Android Focus | R3: Permanent photo upload, unified editor modal, 200ms long press, iOS elimination | M0 | DONE |
-| M3 | Table Management, Kitchen Tickets & Merge | R4: Additional orders, delta kitchen ticket, table merge, temporary bill & status | M1 | DONE |
-| M4 | Financial Reports, History Sync & CSV Export | R5: Period filters, payment breakdown, pending/merged visibility, CSV sync | M1 | DONE |
-| M-FINAL | Final Verification, E2E Pass & Hardening | Pass 100% E2E tests, Tier 5 adversarial hardening, TypeScript clean, Forensic Audit | M1, M2, M3, M4, M-E2E | DONE |
-
-## Interface Contracts
-### `stores/transactionStore.ts` ↔ Receipt & Kitchen Printing (`services/print.ts`, `components/receipt-preview-modal.tsx`)
-- `checkout(...)`: Returns `{ txId, invoiceNumber, total, paymentAmount, change, dailySeq, paymentMethod }`
-- `saveAsPendingOrder(...)`: Returns `{ txId, invoiceNumber, tableNumber, isAdditional, deltaItems }`
-- `mergeTables(...)`: Preserves `discount_amount`, recalculates PB1 `tax_amount`, merges items with `GROUP BY menu_id, price`, updates `subtotal` and `total`.
-
-### `components/menu-form-modal.tsx` ↔ `app/(tabs)/explore.tsx` & `app/transaksi.tsx`
-- Single modal accepting `visible`, `onClose`, `initialData?: Menu | null`, `onSaved: () => void`, `onDeleted?: () => void`.
-- Handles photo upload directly to `saveImageLocally(photoUri, 'menus')`.
-- Includes stock adjustment steppers (`-5`, `-1`, `+1`, `+5`).
-
-### `services/database.ts` ↔ Stores
-- Multi-query operations MUST be wrapped in `await db.withTransactionAsync(async () => { ... })`.
+| M1 | Menu Management, Quick Edit & Action Buttons | Perbaikan skema/migrasi menu, soft-delete is_active, perbaikan form menu & quick edit kasir, perbaikan syntax error HPP global & seluruh tombol aksi | none | DONE |
+| M2 | Dynamic Table Management & Cashier Table Flow | Skema/penyimpanan meja dinamis, modal manajemen meja (tambah, edit nama/nomor), integrasi ke kasir & transaksi pending | M1 | DONE |
+| M3 | Cashier Identity Selection & Receipt Integration | Modal pemilih kasir operasional wajib sebelum masuk kasir, pencatatan cashier_name ke transaksi dan seluruh struk thermal | M1 | DONE |
+| M4 | Customer Rewards, Supplier Purchases, Attendance Calendar & Payment Settings | Form reward customer, form kulakan supplier terintegrasi buku kas/hutang, kalender bulanan absensi interaktif, render QRIS & multi-bank di kasir | M1 | DONE |
+| M5 | Automated Testing (Tier 6), Verification & Comprehensive Final Report | Penambahan test suite Tier 6, eksekusi npm test 100% pass, evaluasi R3 tagihan sementara, analisis R8 integrasi bank, dan laporan akhir operasional | M1, M2, M3, M4 | DONE |
 
 ## Code Layout
-- `app/` - Expo Router screens
-  - `_layout.tsx` - Root app layout, providers, settings auto-loader
-  - `transaksi.tsx` - Main cashier POS screen (cart, menu grid, payment, hold order)
-  - `(tabs)/`
-    - `index.tsx` - Dashboard / Summary
-    - `explore.tsx` - Menu management (unified edit modal, categories, stock)
-    - `history.tsx` - Transaction history & cash ledger (period filters, payment breakdown)
-    - `finance.tsx` - Financial report & PnL
-    - `settings.tsx` - Store profile, PB1 tax, printer configuration
-- `components/` - UI Components & Modals
-  - `menu-form-modal.tsx` - UNIFIED comprehensive menu create/edit modal
-  - `payment-modal.tsx` - Payment entry modal (Tunai, QRIS, Transfer)
-  - `receipt-preview-modal.tsx` - Struk preview, temporary bill preview, kitchen preview
-  - `table-selector-modal.tsx` - Table selection & status badges
-  - `category-form-modal.tsx` - Pure Android category creation dialog
-- `stores/` - Zustand application state
-  - `transactionStore.ts` - Cart, checkout, pending orders, table merge
-  - `menuStore.ts` - Menu CRUD, categories
-  - `financialStore.ts` - Net profit, PnL, cash ledger
-  - `printerStore.ts` - Printer connection & settings
-  - `attendanceStore.ts` - Staff attendance & photo cleanup
-- `services/` - Business logic & hardware drivers
-  - `database.ts` - SQLite schema, migrations, connection
-  - `print.ts` - ESC/POS receipt, kitchen ticket, temporary bill formatting
-- `utils/` - Utility functions
-  - `imageStorage.ts` - Local image persistence & cleanup
-- `test/` - Automated test suites
-  - `unit/` - Unit tests for stores, calculations, and deduplication
-  - `e2e/` - Headless end-to-end integration flows
+- `services/database.ts`: Inisialisasi SQLite, skema tabel, migrasi `migrateDbIfNeeded`, dan data seed.
+- `services/print.ts`: Formatting ESC/POS struk customer, dapur, audit shift, dan tagihan sementara.
+- `services/export.ts` & `services/backup.ts`: Ekspor riwayat PDF dan CSV buku kas/transaksi.
+- `stores/`: Toko state Zustand (`menuStore.ts`, `transactionStore.ts`, `customerStore.ts`, `purchaseStore.ts`, `attendanceStore.ts`, `financialStore.ts`, `settingsStore.ts`).
+- `components/`: Komponen modal antarmuka (`menu-form-modal.tsx`, `table-selector-modal.tsx`, `payment-modal.tsx`, `monthly-cogs-modal.tsx`, `employee-modal.tsx`, `category-form-modal.tsx`, `reward-tier-modal.tsx`, `purchase-form-modal.tsx`, `receipt-preview-modal.tsx`).
+- `app/`: Halaman rute Expo Router (`(tabs)/index.tsx`, `(tabs)/explore.tsx`, `(tabs)/history.tsx`, `(tabs)/attendance.tsx`, `(tabs)/financial.tsx`, `(tabs)/settings.tsx`, `transaksi.tsx`, `customers.tsx`, `purchases.tsx`).
+- `test/`: Test suite Node.js native (`tier1-features.test.ts` s/d `tier5-adversarial.test.ts`, `helpers/db.js`).
+
+## Interface Contracts
+### Menu Management & Store Contract
+- `menus` table: `is_active INTEGER NOT NULL DEFAULT 1`
+- `menuStore.deleteMenu`: `UPDATE menus SET is_active = 0 WHERE id = ?`
+- `menuStore.loadMenus`: `SELECT * FROM menus WHERE is_active = 1 ORDER BY name ASC`
+- `menuStore.quickEditMenu`: `(db, id, price, stock, name) => Promise<void>`
+
+### Table Management Contract
+- `settings` key: `'custom_tables'` containing JSON array:
+  `Array<{ id: string, name: string, number: string, type: 'meja' | 'lesehan' | 'bungkus', sort_order: number }>`
+- `transactionStore.updateActiveTableNumber`: atomik sinkronisasi saat nama/nomor meja diedit.
+
+### Cashier Identity Contract
+- `transactionStore.activeCashier`: string (nama karyawan yang dipilih dari master `employees WHERE is_active = 1`).
+- `transactions` table: `cashier_name TEXT NOT NULL` (terisi nama kasir aktif).
+- `PrintReceiptData.cashierName`: string diteruskan ke seluruh fungsi generator struk di `services/print.ts`.
+
+### Payment Settings & Checkout Contract
+- `settings.qris_image_path`: string (path lokal ke foto QRIS).
+- `settings.bank_accounts`: string JSON `Array<{ bank_name: string, account_number: string, account_holder: string }>`
+- `payment-modal.tsx`: render `Image` untuk QRIS dan daftar selectable bank cards dengan tombol copy.

@@ -7,6 +7,9 @@ import {
   TextInput,
   TouchableOpacity,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 import { Colors } from '../constants/theme';
@@ -21,7 +24,7 @@ interface SupplierModalProps {
 
 export function SupplierModal({ visible, supplier, onClose }: SupplierModalProps) {
   const db = useSQLiteContext();
-  const { addSupplier, updateSupplier } = usePurchaseStore();
+  const { suppliers, addSupplier, updateSupplier } = usePurchaseStore();
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -38,19 +41,28 @@ export function SupplierModal({ visible, supplier, onClose }: SupplierModalProps
   }, [supplier, visible]);
 
   const handleSave = async () => {
-    if (!name.trim()) {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
       Alert.alert('Perhatian', 'Nama supplier wajib diisi.');
+      return;
+    }
+
+    const isDuplicate = suppliers.some(
+      (s) => s.name.trim().toLowerCase() === trimmedName.toLowerCase() && s.id !== supplier?.id
+    );
+    if (isDuplicate) {
+      Alert.alert('Perhatian', 'Nama supplier sudah terdaftar.');
       return;
     }
 
     setIsSubmitting(true);
     try {
       if (supplier) {
-        await updateSupplier(db, supplier.id, name.trim(), phone.trim());
-        Alert.alert('Sukses', `Data supplier ${name} berhasil diperbarui.`);
+        await updateSupplier(db, supplier.id, trimmedName, phone.trim());
+        Alert.alert('Sukses', `Data supplier ${trimmedName} berhasil diperbarui.`);
       } else {
-        await addSupplier(db, name.trim(), phone.trim());
-        Alert.alert('Sukses', `Supplier ${name} berhasil didaftarkan.`);
+        await addSupplier(db, trimmedName, phone.trim());
+        Alert.alert('Sukses', `Supplier ${trimmedName} berhasil didaftarkan.`);
       }
       onClose();
     } catch (err: any) {
@@ -62,7 +74,10 @@ export function SupplierModal({ visible, supplier, onClose }: SupplierModalProps
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.overlay}>
+      <KeyboardAvoidingView
+        style={styles.overlay}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
         <View style={styles.modalBox}>
           {/* Header */}
           <View style={styles.header}>
@@ -75,7 +90,7 @@ export function SupplierModal({ visible, supplier, onClose }: SupplierModalProps
           </View>
 
           {/* Body */}
-          <View style={styles.body}>
+          <ScrollView style={styles.body} keyboardShouldPersistTaps="handled">
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Nama Supplier / Toko Grosir *</Text>
               <TextInput
@@ -98,7 +113,7 @@ export function SupplierModal({ visible, supplier, onClose }: SupplierModalProps
                 onChangeText={setPhone}
               />
             </View>
-          </View>
+          </ScrollView>
 
           {/* Footer */}
           <View style={styles.footer}>
@@ -112,7 +127,7 @@ export function SupplierModal({ visible, supplier, onClose }: SupplierModalProps
             />
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

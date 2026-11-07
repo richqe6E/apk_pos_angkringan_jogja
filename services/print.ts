@@ -308,6 +308,62 @@ export async function printKitchenAdditionalTicket(data: {
 }
 
 /**
+ * FORMAT STRUK KASIR / CUSTOMER & ARSIP AUDIT INTERNAL
+ */
+export function formatCustomerReceiptLines(data: PrintReceiptData): string[] {
+  const lines: string[] = [];
+
+  // Header Toko
+  lines.push(data.storeName || 'ANGKRINGAN JOGJA');
+  if (data.storeAddress) lines.push(data.storeAddress);
+  if (data.storePhone) lines.push(`Telp: ${data.storePhone}`);
+  lines.push(DIVIDER_EQUAL);
+
+  // Identitas Transaksi & Kasir
+  lines.push(`No. Nota : ${data.invoiceNumber}`);
+  lines.push(`Waktu    : ${data.dateTimeString}`);
+  lines.push(`Meja     : ${data.tableNumber}`);
+  lines.push(`Customer : ${data.customerName}`);
+  lines.push(`Kasir    : ${data.cashierName || 'Kasir'}`);
+  lines.push(DIVIDER_DASH);
+
+  // Item Menu
+  for (const item of data.items) {
+    lines.push(item.name);
+    lines.push(
+      formatTotalLine(
+        `  ${item.qty} x ${formatRupiahDisplay(item.price, false)}`,
+        formatRupiahDisplay(item.subtotal, false)
+      )
+    );
+  }
+  lines.push(DIVIDER_DASH);
+
+  // Ringkasan Pembayaran
+  lines.push(formatTotalLine('Subtotal', formatRupiahDisplay(data.subtotal)));
+  if (data.discountAmount && data.discountAmount > 0) {
+    lines.push(formatTotalLine('Diskon', `- ${formatRupiahDisplay(data.discountAmount)}`));
+  }
+  if (data.taxAmount && data.taxAmount > 0) {
+    lines.push(formatTotalLine('Pajak (PB1)', formatRupiahDisplay(data.taxAmount)));
+  }
+  lines.push(formatTotalLine('TOTAL', formatRupiahDisplay(data.total)));
+
+  const methodUpper = String(data.paymentMethod || 'TUNAI').toUpperCase();
+  lines.push(formatTotalLine(`Bayar (${methodUpper})`, formatRupiahDisplay(data.paymentAmount)));
+
+  if (methodUpper === 'TUNAI') {
+    lines.push(formatTotalLine('Kembalian', formatRupiahDisplay(data.changeAmount)));
+  }
+
+  lines.push(DIVIDER_EQUAL);
+  lines.push(data.receiptFooter || 'Matur Nuwun Sampun Rawuh!');
+  lines.push('Simpan struk ini sebagai bukti transaksi');
+
+  return lines;
+}
+
+/**
  * 4. FORMAT STRUK TAGIHAN SEMENTARA (BUKAN BUKTI BAYAR)
  */
 export function formatTemporaryBillReceipt(data: PrintReceiptData): string[] {

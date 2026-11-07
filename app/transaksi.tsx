@@ -30,6 +30,8 @@ import { MenuFormModal } from '../components/menu-form-modal';
 import { PaymentModal } from '../components/payment-modal';
 import { ReceiptPreviewModal } from '../components/receipt-preview-modal';
 import { PrinterManagementModal } from '../components/printer-management-modal';
+import { CashierSelectorModal } from '../components/cashier-selector-modal';
+import { QuickEditModal } from '../components/quick-edit-modal';
 import {
   PrintReceiptData,
   autoRoutePrint,
@@ -59,6 +61,8 @@ export default function TransaksiScreen() {
     cart,
     tableNumber,
     activePendingTransactionId,
+    activeCashier,
+    activeCashierName,
     customerName,
     eligibleReward,
     storeProfile,
@@ -77,10 +81,12 @@ export default function TransaksiScreen() {
   } = useTransactionStore();
 
   // Modals state
+  const [cashierModalVisible, setCashierModalVisible] = useState(false);
   const [tableModalVisible, setTableModalVisible] = useState(false);
   const [customerModalVisible, setCustomerModalVisible] = useState(false);
   const [paymentModalVisible, setPaymentModalVisible] = useState(false);
   const [menuModalVisible, setMenuModalVisible] = useState(false);
+  const [quickEditModalVisible, setQuickEditModalVisible] = useState(false);
   const [printerModalVisible, setPrinterModalVisible] = useState(false);
   const [receiptPreviewVisible, setReceiptPreviewVisible] = useState(false);
   const [receiptPreviewTab, setReceiptPreviewTab] = useState<'customer' | 'kitchen' | 'temp_bill'>('customer');
@@ -93,6 +99,9 @@ export default function TransaksiScreen() {
     loadMenus(db);
     loadPendingOrders(db);
     loadStoreSettings(db);
+    if (!activeCashier && !activeCashierName) {
+      setCashierModalVisible(true);
+    }
   }, [db]);
 
   // Filter menu berdasarkan kategori & pencarian teks
@@ -198,7 +207,7 @@ export default function TransaksiScreen() {
         dateTimeString: `${formatFullIndonesianDate(now)}, ${formatRealtimeClock(now)}`,
         tableNumber,
         customerName,
-        cashierName: 'Kasir',
+        cashierName: activeCashier || activeCashierName || 'Kasir',
         items: cart.map((i) => ({
           name: i.name,
           price: i.price,
@@ -251,6 +260,18 @@ export default function TransaksiScreen() {
         </View>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          {/* Cashier Selector Bar di Header */}
+          <TouchableOpacity
+            style={styles.cashierHeaderBtn}
+            onPress={() => setCashierModalVisible(true)}
+          >
+            <IconSymbol name="person.crop.circle" size={18} color="#ffffff" />
+            <Text style={styles.cashierHeaderName}>
+              {activeCashier || activeCashierName ? `Kasir: ${activeCashier || activeCashierName}` : 'Pilih Kasir'}
+            </Text>
+            <Text style={styles.dropdownCaret}>▼</Text>
+          </TouchableOpacity>
+
           {/* Customer Selector Bar di Header */}
           <TouchableOpacity
             style={styles.customerHeaderBtn}
@@ -332,7 +353,7 @@ export default function TransaksiScreen() {
                     onLongPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
                       setSelectedMenuForEdit(item);
-                      setMenuModalVisible(true);
+                      setQuickEditModalVisible(true);
                     }}
                     delayLongPress={200}
                   >
@@ -588,6 +609,16 @@ export default function TransaksiScreen() {
         }}
       />
 
+      <QuickEditModal
+        visible={quickEditModalVisible}
+        menuItem={selectedMenuForEdit}
+        onClose={() => {
+          setQuickEditModalVisible(false);
+          setSelectedMenuForEdit(null);
+        }}
+        onOpenFullEdit={() => setMenuModalVisible(true)}
+      />
+
       <PaymentModal
         visible={paymentModalVisible}
         onClose={() => setPaymentModalVisible(false)}
@@ -604,7 +635,7 @@ export default function TransaksiScreen() {
             dateTimeString: `${formatFullIndonesianDate(now)}, ${formatRealtimeClock(now)}`,
             tableNumber,
             customerName,
-            cashierName: 'Kasir',
+            cashierName: activeCashier || activeCashierName || 'Kasir',
             items: cart.map((i) => ({
               name: i.name,
               price: i.price,
@@ -634,6 +665,11 @@ export default function TransaksiScreen() {
         data={lastReceiptData}
         initialTab={receiptPreviewTab}
         onClose={() => setReceiptPreviewVisible(false)}
+      />
+
+      <CashierSelectorModal
+        visible={cashierModalVisible}
+        onClose={() => setCashierModalVisible(false)}
       />
 
       <PrinterManagementModal
@@ -678,6 +714,22 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     fontSize: 11,
     color: 'rgba(255, 255, 255, 0.85)',
+  },
+  cashierHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
+  },
+  cashierHeaderName: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '700',
+    marginLeft: 8,
   },
   customerHeaderBtn: {
     flexDirection: 'row',

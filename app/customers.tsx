@@ -244,7 +244,10 @@ export default function CustomersScreen() {
       {/* Reward Tier Modal */}
       <RewardTierModal
         visible={tierModalVisible}
-        onClose={() => setTierModalVisible(false)}
+        onClose={() => {
+          setTierModalVisible(false);
+          loadCustomers(db);
+        }}
       />
     </View>
   );

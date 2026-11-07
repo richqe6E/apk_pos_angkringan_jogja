@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -8,13 +8,15 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 import { Colors } from '../constants/theme';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { formatRupiahDisplay, parseRupiahInput } from '../utils/formatRupiah';
+import { formatRupiahDisplay, formatRupiahInput, parseRupiahInput } from '../utils/formatRupiah';
 import { RewardTier, useCustomerStore } from '../stores/customerStore';
 
 interface RewardTierModalProps {
@@ -24,7 +26,7 @@ interface RewardTierModalProps {
 
 export function RewardTierModal({ visible, onClose }: RewardTierModalProps) {
   const db = useSQLiteContext();
-  const { rewardTiers, addRewardTier, updateRewardTier, deleteRewardTier } = useCustomerStore();
+  const { rewardTiers, loadRewardTiers, addRewardTier, updateRewardTier, deleteRewardTier } = useCustomerStore();
 
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -32,6 +34,13 @@ export function RewardTierModal({ visible, onClose }: RewardTierModalProps) {
   const [minSpendText, setMinSpendText] = useState('');
   const [rewardDescription, setRewardDescription] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (visible && db) {
+      loadRewardTiers(db).catch((e) => console.warn('Error loading reward tiers:', e));
+      resetForm();
+    }
+  }, [visible, db]);
 
   const resetForm = () => {
     setIsEditing(false);
@@ -45,12 +54,22 @@ export function RewardTierModal({ visible, onClose }: RewardTierModalProps) {
     setIsEditing(true);
     setEditingId(t.id);
     setTierName(t.tier_name);
-    setMinSpendText(t.min_spend.toString());
+    setMinSpendText(formatRupiahInput(t.min_spend));
     setRewardDescription(t.reward_description);
   };
 
+  const handleMinSpendChange = (txt: string) => {
+    const rawNum = parseRupiahInput(txt);
+    if (rawNum === 0 && txt.trim() === '') {
+      setMinSpendText('');
+    } else {
+      setMinSpendText(formatRupiahInput(rawNum));
+    }
+  };
+
   const handleSave = async () => {
-    if (!tierName.trim()) {
+    const trimmedTierName = tierName.trim();
+    if (!trimmedTierName) {
       Alert.alert('Perhatian', 'Nama tingkatan tier reward wajib diisi.');
       return;
     }
@@ -61,17 +80,28 @@ export function RewardTierModal({ visible, onClose }: RewardTierModalProps) {
       return;
     }
 
-    if (!rewardDescription.trim()) {
+    const trimmedRewardDesc = rewardDescription.trim();
+    if (!trimmedRewardDesc) {
       Alert.alert('Perhatian', 'Deskripsi hadiah reward wajib diisi.');
+      return;
+    }
+
+    const isDuplicate = rewardTiers.some(
+      (t) => t.tier_name.trim().toLowerCase() === trimmedTierName.toLowerCase() && t.id !== editingId
+    );
+    if (isDuplicate) {
+      Alert.alert('Perhatian', 'Nama tingkatan reward sudah terdaftar.');
       return;
     }
 
     setIsSaving(true);
     try {
       if (editingId) {
-        await updateRewardTier(db, editingId, tierName.trim(), minSpend, rewardDescription.trim());
+        await updateRewardTier(db, editingId, trimmedTierName, minSpend, trimmedRewardDesc);
+        Alert.alert('Sukses', `Tingkatan reward ${trimmedTierName} berhasil diperbarui.`);
       } else {
-        await addRewardTier(db, tierName.trim(), minSpend, rewardDescription.trim());
+        await addRewardTier(db, trimmedTierName, minSpend, trimmedRewardDesc);
+        Alert.alert('Sukses', `Tingkatan reward ${trimmedTierName} berhasil ditambahkan.`);
       }
       resetForm();
     } catch (err: any) {
@@ -93,6 +123,7 @@ export function RewardTierModal({ visible, onClose }: RewardTierModalProps) {
           onPress: async () => {
             try {
               await deleteRewardTier(db, t.id);
+              Alert.alert('Sukses', `Tingkatan reward ${t.tier_name} berhasil dihapus.`);
               if (editingId === t.id) resetForm();
             } catch (err: any) {
               Alert.alert('Gagal Hapus', err.message);
@@ -105,7 +136,10 @@ export function RewardTierModal({ visible, onClose }: RewardTierModalProps) {
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.overlay}>
+      <KeyboardAvoidingView
+        style={styles.overlay}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
         <View style={styles.modalBox}>
           {/* Header */}
           <View style={styles.header}>
@@ -120,7 +154,7 @@ export function RewardTierModal({ visible, onClose }: RewardTierModalProps) {
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
+          <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent} keyboardShouldPersistTaps="handled">
             {/* Form Tambah / Edit */}
             <Card style={styles.formCard}>
               <Text style={styles.formTitle}>
@@ -142,12 +176,17 @@ export function RewardTierModal({ visible, onClose }: RewardTierModalProps) {
                 <Text style={styles.inputLabel}>Ambang Batas Belanja Minimal (Rp)</Text>
                 <TextInput
                   style={styles.textInput}
-                  placeholder="Contoh: 500000"
+                  placeholder="Contoh: 500.000"
                   placeholderTextColor={Colors.textMuted}
                   keyboardType="numeric"
                   value={minSpendText}
-                  onChangeText={setMinSpendText}
+                  onChangeText={handleMinSpendChange}
                 />
+                {parseRupiahInput(minSpendText) > 0 && (
+                  <Text style={styles.amountPreview}>
+                    Preview: {formatRupiahDisplay(parseRupiahInput(minSpendText))}
+                  </Text>
+                )}
               </View>
 
               <View style={styles.inputGroup}>
@@ -225,7 +264,7 @@ export function RewardTierModal({ visible, onClose }: RewardTierModalProps) {
             <Button title="Selesai" variant="primary" onPress={onClose} style={{ minWidth: 120 }} />
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -312,6 +351,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.text,
     backgroundColor: '#ffffff',
+  },
+  amountPreview: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.primary,
+    marginTop: 4,
   },
   formActions: {
     flexDirection: 'row',

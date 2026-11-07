@@ -36,6 +36,9 @@ interface TransactionState {
   cart: CartItem[];
   tableNumber: string;
   activePendingTransactionId: number | null; // null jika transaksi baru
+  activeCashier: string;
+  activeCashierId: number | null;
+  activeCashierName: string;
   customerId: number | null;
   customerName: string;
   customerTotalSpent: number;
@@ -59,6 +62,7 @@ interface TransactionState {
   removeFromCart: (menuId: number) => void;
   clearCart: () => void;
   setTableNumber: (table: string) => void;
+  setActiveCashier: (nameOrId: string | number | null, name?: string) => void;
   setCustomer: (id: number | null, name: string, totalSpent?: number, eligibleReward?: string | null) => void;
   setDiscountAmount: (amount: number) => void;
   setTaxSettings: (enabled: boolean, rate: number) => void;
@@ -106,6 +110,9 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
   cart: [],
   tableNumber: 'Meja 01',
   activePendingTransactionId: null,
+  activeCashier: '',
+  activeCashierId: null,
+  activeCashierName: '',
   customerId: 1,
   customerName: 'Customer UMUM',
   customerTotalSpent: 0,
@@ -210,6 +217,15 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
 
   setTableNumber: (table: string) => {
     set({ tableNumber: table });
+  },
+
+  setActiveCashier: (nameOrId: string | number | null, name?: string) => {
+    if (typeof nameOrId === 'string') {
+      set({ activeCashier: nameOrId, activeCashierName: nameOrId });
+    } else {
+      const cashierName = name || '';
+      set({ activeCashierId: nameOrId, activeCashier: cashierName, activeCashierName: cashierName });
+    }
   },
 
   setCustomer: (id, name, totalSpent = 0, eligibleReward = null) => {
@@ -495,9 +511,9 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
         db.withTransactionAsync(async () => {
           await db.runAsync(
             `UPDATE transactions
-             SET subtotal = ?, tax_amount = ?, discount_amount = ?, total = ?, table_number = ?, customer_name = ?
+             SET subtotal = ?, tax_amount = ?, discount_amount = ?, total = ?, table_number = ?, customer_name = ?, cashier_name = ?
              WHERE id = ?`,
-            [subtotal, taxAmount, discountAmount, total, tableNumber, customerName, activePendingTransactionId]
+            [subtotal, taxAmount, discountAmount, total, tableNumber, customerName, get().activeCashierName || 'Kasir', activePendingTransactionId]
           );
 
           await db.runAsync('DELETE FROM transaction_items WHERE transaction_id = ?', [activePendingTransactionId]);
@@ -559,9 +575,20 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
           `INSERT INTO transactions (
             invoice_number, business_date, table_number, customer_id, customer_name,
             subtotal, tax_amount, discount_amount, total, payment_method, payment_amount,
-            change_amount, status
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'tunai', 0, 0, 'pending')`,
-          [invoiceNumber, businessDate, tableNumber, customerId, customerName, subtotal, taxAmount, discountAmount, total]
+            change_amount, status, cashier_name
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'tunai', 0, 0, 'pending', ?)`,
+          [
+            invoiceNumber,
+            businessDate,
+            tableNumber,
+            customerId,
+            customerName,
+            subtotal,
+            taxAmount,
+            discountAmount,
+            total,
+            get().activeCashier || get().activeCashierName || 'Kasir',
+          ]
         );
 
         newTxId = res.lastInsertRowId;
@@ -726,7 +753,8 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
               `UPDATE transactions
                SET subtotal = ?, tax_amount = ?, discount_amount = ?, total = ?,
                    payment_method = ?, payment_amount = ?, change_amount = ?,
-                   status = 'completed', table_number = ?, customer_name = ?
+                   status = 'completed', table_number = ?, customer_name = ?,
+                   cashier_name = ?
                WHERE id = ?`,
               [
                 subtotal,
@@ -738,6 +766,7 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
                 change,
                 tableNumber,
                 customerName,
+                get().activeCashier || get().activeCashierName || 'Kasir',
                 finalTxId,
               ]
             );
@@ -772,8 +801,8 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
               `INSERT INTO transactions (
                 invoice_number, business_date, table_number, customer_id, customer_name,
                 subtotal, tax_amount, discount_amount, total, payment_method, payment_amount,
-                change_amount, status
-              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'completed')`,
+                change_amount, status, cashier_name
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'completed', ?)`,
               [
                 finalInvoice,
                 businessDate,
@@ -787,6 +816,7 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
                 paymentMethod,
                 paymentAmount,
                 change,
+                get().activeCashier || get().activeCashierName || 'Kasir',
               ]
             );
 

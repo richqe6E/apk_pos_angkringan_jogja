@@ -89,7 +89,7 @@ export default function PurchasesScreen() {
   const handleDeletePurchase = (p: PurchaseRecord) => {
     Alert.alert(
       'Hapus Catatan Pembelian?',
-      `Yakin ingin menghapus riwayat pembelian #${p.id} dari ${p.supplier_name}?`,
+      `Yakin ingin menghapus riwayat pembelian #${p.id} dari ${p.supplier_name}? Catatan kas terkait (jika ada) juga akan dihapus.`,
       [
         { text: 'Batal', style: 'cancel' },
         {
@@ -98,8 +98,9 @@ export default function PurchasesScreen() {
           onPress: async () => {
             try {
               await deletePurchase(db, p.id);
+              Alert.alert('Sukses', 'Riwayat pembelian berhasil dihapus.');
             } catch (err: any) {
-              Alert.alert('Gagal Hapus', err.message);
+              Alert.alert('Gagal Hapus', err.message || 'Gagal menghapus riwayat pembelian.');
             }
           },
         },
@@ -127,8 +128,9 @@ export default function PurchasesScreen() {
           onPress: async () => {
             try {
               await deleteSupplier(db, s.id);
+              Alert.alert('Sukses', `Data supplier ${s.name} berhasil dihapus.`);
             } catch (err: any) {
-              Alert.alert('Gagal Hapus', err.message);
+              Alert.alert('Gagal Hapus', err.message || 'Gagal menghapus data supplier.');
             }
           },
         },

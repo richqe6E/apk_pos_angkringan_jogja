@@ -7,12 +7,15 @@ import {
   TextInput,
   TouchableOpacity,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 import { Colors } from '../constants/theme';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
-import { formatRupiahDisplay, parseRupiahInput } from '../utils/formatRupiah';
+import { formatRupiahDisplay, formatRupiahInput, parseRupiahInput } from '../utils/formatRupiah';
 import { useFinancialStore } from '../stores/financialStore';
 
 interface MonthlyCogsModalProps {
@@ -30,10 +33,19 @@ export function MonthlyCogsModal({ visible, onClose }: MonthlyCogsModalProps) {
 
   useEffect(() => {
     if (visible) {
-      setAmountText(summary.monthlyCogs > 0 ? summary.monthlyCogs.toString() : '');
+      setAmountText(summary.monthlyCogs > 0 ? formatRupiahInput(summary.monthlyCogs) : '');
       setNotes(summary.monthlyCogsNotes || '');
     }
-  }, [visible, summary]);
+  }, [visible, summary.monthlyCogs, summary.monthlyCogsNotes]);
+
+  const handleAmountChange = (text: string) => {
+    const rawNumber = parseRupiahInput(text);
+    if (rawNumber === 0 && text.trim() === '') {
+      setAmountText('');
+    } else {
+      setAmountText(formatRupiahInput(rawNumber));
+    }
+  };
 
   const handleSave = async () => {
     const amount = parseRupiahInput(amountText);
@@ -59,7 +71,10 @@ export function MonthlyCogsModal({ visible, onClose }: MonthlyCogsModalProps) {
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.overlay}>
+      <KeyboardAvoidingView
+        style={styles.overlay}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
         <View style={styles.modalBox}>
           {/* Header */}
           <View style={styles.header}>
@@ -75,7 +90,7 @@ export function MonthlyCogsModal({ visible, onClose }: MonthlyCogsModalProps) {
           </View>
 
           {/* Body */}
-          <View style={styles.body}>
+          <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent} keyboardShouldPersistTaps="handled">
             {/* Guide Card Opsi A */}
             <Card style={styles.guideCard}>
               <Text style={styles.guideTitle}>💡 Petunjuk Perhitungan HPP Opsi A:</Text>
@@ -92,15 +107,19 @@ export function MonthlyCogsModal({ visible, onClose }: MonthlyCogsModalProps) {
               <Text style={styles.label}>Total Nominal HPP Bahan Baku Bulan Ini (Rp) *</Text>
               <TextInput
                 style={styles.amountInput}
-                placeholder="Contoh: 8500000"
+                placeholder="Contoh: 8.500.000"
                 placeholderTextColor={Colors.textMuted}
                 keyboardType="numeric"
                 value={amountText}
-                onChangeText={setAmountText}
+                onChangeText={handleAmountChange}
               />
-              {parseRupiahInput(amountText) > 0 && (
+              {parseRupiahInput(amountText) > 0 ? (
                 <Text style={styles.amountPreview}>
-                  {formatRupiahDisplay(parseRupiahInput(amountText))}
+                  Preview: {formatRupiahDisplay(parseRupiahInput(amountText))}
+                </Text>
+              ) : (
+                <Text style={styles.amountPreviewEmpty}>
+                  Masukkan estimasi total belanja bahan terpakai
                 </Text>
               )}
             </View>
@@ -116,7 +135,7 @@ export function MonthlyCogsModal({ visible, onClose }: MonthlyCogsModalProps) {
                 multiline
               />
             </View>
-          </View>
+          </ScrollView>
 
           {/* Footer */}
           <View style={styles.footer}>
@@ -130,7 +149,7 @@ export function MonthlyCogsModal({ visible, onClose }: MonthlyCogsModalProps) {
             />
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -235,6 +254,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: Colors.primary,
+  },
+  amountPreviewEmpty: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    fontStyle: 'italic',
   },
   notesInput: {
     minHeight: 60,

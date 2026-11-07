@@ -1,33 +1,35 @@
-# BRIEFING — 2026-11-07T03:47:00Z
+# BRIEFING — 2026-11-07T10:31:30Z
 
 ## Mission
-Perbaiki seluruh bug, integrasi terputus, dan fitur belum terealisasi pada POS Angkringan Jogja (Android murni) sesuai PRD & temuan audit, diawali audit & rencana perbaikan ponytail.
+Pemeriksaan mendalam, perbaikan bug fungsional tombol dan modal form, penyesuaian alur operasional, serta penambahan fitur operasional (R1-R8) pada aplikasi POS Angkringan Jogja.
 
 ## 🔒 My Identity
 - Archetype: teamwork_orchestrator
 - Roles: orchestrator, user_liaison, human_reporter, successor
-- Working directory: d:\Source_Code_Angkringan_Jogja\.agents\teamwork\orchestrator
+- Working directory: d:\apk pos angkringan jogja\apk_pos_angkringan_jogja
+- State folder: d:\apk pos angkringan jogja\apk_pos_angkringan_jogja\.agents\teamwork\orchestrator
 - Original parent: parent (Sentinel)
-- Original parent conversation ID: 50c58900-fd57-49ee-a2d6-e5a72a90269f
+- Original parent conversation ID: 75fac153-be72-471e-83c1-4d8917017a5f
 
 ## 🔒 My Workflow
-- **Pattern**: Project Pattern (Dual Track: Implementation + E2E Testing)
-- **Scope document**: d:\Source_Code_Angkringan_Jogja\PROJECT.md
-1. **Decompose**: Survey (3 Explorers) -> Plan & Audit Document (R1) -> Decompose into milestones -> Dispatch sub-orchestrators/workers
+- **Pattern**: Project Pattern (Survey -> Decompose into Milestones + E2E Tests -> Dual Track -> Hardening & Audit)
+- **Scope document**: d:\apk pos angkringan jogja\apk_pos_angkringan_jogja\PROJECT.md
+1. **Decompose**:
+   - Survey (3 Explorers in parallel) across R1 to R8
+   - Merge findings into PROJECT.md Feature Inventory & Milestone Decomposition
 2. **Dispatch & Execute**:
    - Direct iteration loop & milestone delegation: Explorer -> Worker -> Reviewer -> Challenger -> Auditor
 3. **On failure**: Retry -> Replace -> Skip -> Redistribute -> Redesign -> Escalate
 4. **Succession**: At 16 spawns, write handoff.md, cancel crons, spawn successor
 - **Work items**:
-  1. Survey & Ponytail Initial Audit & Plan (R1) [in-progress]
-  2. E2E Testing Track initialization [pending]
-  3. Milestone 1: Financial & Cash In & Transaction Integrity (R2) [pending]
-  4. Milestone 2: Menu Management, Photo Upload & Android Pure Optimization (R3) [pending]
-  5. Milestone 3: Table Management, Pending Orders & Kitchen Tickets (R4) [pending]
-  6. Milestone 4: Financial Reports, Transaction History & CSV Export (R5) [pending]
-  7. Final Milestone: 100% E2E test verification & hardening [pending]
-- **Current phase**: Phase 1 (Dual Track Execution)
-- **Current focus**: E2E Testing Suite Harness (worker_e2e_1) & Milestone 1: Financial & DB Integrity (worker_m1_1)
+  1. Survey: 3 Parallel Explorers for R1-R8 codebase mapping [in-progress]
+  2. Synthesize survey findings into PROJECT.md [pending]
+  3. Milestone Decomposition & Dual Track Planning [pending]
+  4. Execution of Milestones [pending]
+  5. Verification, Ponytail Code Audit & Forensic Audit [pending]
+  6. Final Human Report Synthesis [pending]
+- **Current phase**: Phase 0 (Survey)
+- **Current focus**: Monitoring 3 parallel Explorers (op_1, op_2, op_3)
 
 ## 🔒 Key Constraints
 - NEVER write, modify, or create source code files directly.
@@ -40,42 +42,35 @@ Perbaiki seluruh bug, integrasi terputus, dan fitur belum terealisasi pada POS A
 - Forensic audit is hard veto (binary veto).
 
 ## Current Parent
-- Conversation ID: 50c58900-fd57-49ee-a2d6-e5a72a90269f
-- Updated: 2026-11-07T04:05:00Z
+- Conversation ID: 75fac153-be72-471e-83c1-4d8917017a5f
+- Updated: 2026-11-07T10:30:00Z
 
 ## Key Decisions Made
-- Dispatched Dual Track:
-  1) `worker_e2e_1` (teamwork_test_writer) builds native Node 24 test suites (Tiers 1-4) -> TEST_READY.md
-  2) `worker_m1_1` (teamwork_worker) implements Requirement R2 fixes (net profit, cash in sync, DB transactions, receipt profile & paymentMethod, photo cleanup, settings startup)
+- Initiating Survey phase with 3 parallel Explorers:
+  1) explorer_survey_op_1 (3bbfdbfa-2378-4656-8674-67ada55257bd): R1 (Menu bugs) & R2 Part 1 (Menu, History, Attendance modals)
+  2) explorer_survey_op_2 (96f4447a-47cf-4efa-87e6-d2ac16d765a0): R2 Part 2 (HPP, Reward, Supplier), R3 (Bill eval), R4 (Tables)
+  3) explorer_survey_op_3 (2d540b61-1c27-480e-84d4-eedc9303eae4): R5 (Cashier ID), R6 (Calendar), R7 (QRIS/Banks), R8 (Tests/Base)
 
 ## Team Roster
 | Agent | Type | Work Item | Status | Conv ID |
 |-------|------|-----------|--------|---------|
-| explorer_survey_1 | teamwork_explorer | Financial & DB Explorer (R2 & R5) | completed | 10bd5663-e169-4fc7-b582-a08e23a2c455 |
-| explorer_survey_2 | teamwork_explorer | Menu & Android UX Explorer (R3) | completed | 7633ba82-6f86-4a13-9d97-f470d9a674de |
-| explorer_survey_3 | teamwork_explorer | Table & Testing Explorer (R4 & Test) | completed | 4824d441-ccf7-437b-8048-66f0aafc3780 |
-| worker_e2e_1 | teamwork_test_writer | E2E Testing Suite (Tiers 1-4) | completed | 41784662-f870-4d2b-a2a7-8e2334df5d93 |
-| worker_m1_1 | teamwork_worker | Milestone 1: Financial & DB (R2) | completed | 0030b2cf-b059-48b8-b14d-612f3db1ee99 |
-| worker_m2_1 | teamwork_worker | Milestone 2: Menu & Android UX (R3) | completed | 66a44327-be5a-4dfd-a98c-64fcab9b8830 |
-| worker_m3_1 | teamwork_worker | Milestone 3: Table & Kitchen (R4) | completed | 573a5baa-e0c6-406a-98c6-88b5bad01ab4 |
-| worker_m4_1 | teamwork_worker | Milestone 4: Reports, History & CSV (R5) | completed | 82001552-ec6a-4e09-91cd-a72705033abb |
-| challenger_1 | teamwork_challenger | Adversarial Hardening (Tier 5) | completed | 13ceec8b-3b4d-4cbe-a90d-0c58fe7ca0b3 |
-| reviewer_1 | teamwork_reviewer | Code Review & Quality Assurance | completed | 20751a3f-e12a-4480-98ec-a3b193d55f2d |
-| auditor_1 | teamwork_auditor | Forensic Integrity Auditor | completed | 880d2ca1-f779-450d-985f-f9ae3a54d364 |
+| explorer_survey_op_1 | teamwork_explorer | Survey: R1 (Menu bugs) & R2 Part 1 (Menu, History, Attendance modals) | in-progress | 3bbfdbfa-2378-4656-8674-67ada55257bd |
+| explorer_survey_op_2 | teamwork_explorer | Survey: R2 Part 2 (HPP, Reward, Supplier), R3 (Bill eval), R4 (Tables) | in-progress | 96f4447a-47cf-4efa-87e6-d2ac16d765a0 |
+| explorer_survey_op_3 | teamwork_explorer | Survey: R5 (Cashier ID), R6 (Calendar), R7 (QRIS/Banks), R8 (Tests/Base) | in-progress | 2d540b61-1c27-480e-84d4-eedc9303eae4 |
 
 ## Succession Status
 - Succession required: no
-- Spawn count: 11 / 16
-- Pending subagents: none
+- Spawn count: 3 / 16 (in current cycle)
+- Pending subagents: 3bbfdbfa-2378-4656-8674-67ada55257bd, 96f4447a-47cf-4efa-87e6-d2ac16d765a0, 2d540b61-1c27-480e-84d4-eedc9303eae4
 - Predecessor: none
 - Successor: not yet spawned
 
 ## Active Timers
-- Heartbeat cron: cancelled (all subagents completed)
-- Safety timer: none
+- Heartbeat cron: d71ae8e5-c4f4-4cc3-9d99-01e0fe5bdc15/task-30
+- Safety timer: d71ae8e5-c4f4-4cc3-9d99-01e0fe5bdc15/task-32
 
 ## Artifact Index
-- d:\Source_Code_Angkringan_Jogja\.agents\teamwork\ORIGINAL_REQUEST.md — Original request
-- d:\Source_Code_Angkringan_Jogja\.agents\teamwork\orchestrator\DISPATCH.md — Task assignment
-- d:\Source_Code_Angkringan_Jogja\.agents\teamwork\orchestrator\progress.md — Progress log
-- d:\Source_Code_Angkringan_Jogja\.agents\teamwork\orchestrator\plan.md — Orchestrator plan
+- d:\apk pos angkringan jogja\apk_pos_angkringan_jogja\.agents\teamwork\ORIGINAL_REQUEST.md — Original user request
+- d:\apk pos angkringan jogja\apk_pos_angkringan_jogja\.agents\teamwork\orchestrator\DISPATCH.md — Task assignment
+- d:\apk pos angkringan jogja\apk_pos_angkringan_jogja\.agents\teamwork\orchestrator\progress.md — Progress log
+- d:\apk pos angkringan jogja\apk_pos_angkringan_jogja\PROJECT.md — Global architecture & project plan

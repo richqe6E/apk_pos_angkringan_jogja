@@ -592,13 +592,19 @@ export default function FinancialScreen() {
       {/* Cash Entry Modal */}
       <CashEntryModal
         visible={cashModalVisible}
-        onClose={() => setCashModalVisible(false)}
+        onClose={() => {
+          setCashModalVisible(false);
+          refreshData();
+        }}
       />
 
       {/* Monthly COGS Modal */}
       <MonthlyCogsModal
         visible={cogsModalVisible}
-        onClose={() => setCogsModalVisible(false)}
+        onClose={() => {
+          setCogsModalVisible(false);
+          refreshData();
+        }}
       />
 
       {/* Admin PIN Modal for COGS */}

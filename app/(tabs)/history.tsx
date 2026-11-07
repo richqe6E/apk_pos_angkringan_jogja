@@ -241,7 +241,29 @@ export default function HistoryScreen() {
       (c.notes && c.notes.toLowerCase().includes(search.toLowerCase()))
   );
 
+  const isDismissalError = (err: any): boolean => {
+    const msg = (err?.message || '').toLowerCase();
+    return (
+      msg.includes('cancel') ||
+      msg.includes('dismiss') ||
+      msg.includes('user did not share') ||
+      msg.includes('abort')
+    );
+  };
+
   const handleExportPdf = async () => {
+    if (activeTab === 'sales') {
+      if (filteredTransactions.length === 0) {
+        Alert.alert('Tidak Ada Data', 'Tidak ada data transaksi untuk diekspor pada periode ini.');
+        return;
+      }
+    } else {
+      if (filteredCash.length === 0) {
+        Alert.alert('Tidak Ada Data', 'Tidak ada data mutasi kas untuk diekspor pada periode ini.');
+        return;
+      }
+    }
+
     setIsExporting(true);
     try {
       if (activeTab === 'sales') {
@@ -288,14 +310,31 @@ export default function HistoryScreen() {
           ]
         );
       }
+      Alert.alert('Export Berhasil', 'Berkas berhasil dibuat dan siap dibagikan.');
     } catch (err: any) {
-      Alert.alert('Export Gagal', err.message);
+      if (isDismissalError(err)) {
+        Alert.alert('Export Berhasil', 'Berkas berhasil dibuat dan siap dibagikan.');
+      } else {
+        Alert.alert('Export Gagal', err.message || 'Gagal mengekspor data ke format PDF.');
+      }
     } finally {
       setIsExporting(false);
     }
   };
 
   const handleExportCsv = async () => {
+    if (activeTab === 'sales') {
+      if (filteredTransactions.length === 0) {
+        Alert.alert('Tidak Ada Data', 'Tidak ada data transaksi untuk diekspor pada periode ini.');
+        return;
+      }
+    } else {
+      if (filteredCash.length === 0) {
+        Alert.alert('Tidak Ada Data', 'Tidak ada data mutasi kas untuk diekspor pada periode ini.');
+        return;
+      }
+    }
+
     setIsExporting(true);
     try {
       if (activeTab === 'sales') {
@@ -307,8 +346,13 @@ export default function HistoryScreen() {
           activeTab === 'cash_in' ? 'income' : 'expense'
         );
       }
+      Alert.alert('Export Berhasil', 'Berkas berhasil dibuat dan siap dibagikan.');
     } catch (err: any) {
-      Alert.alert('Export Gagal', err.message);
+      if (isDismissalError(err)) {
+        Alert.alert('Export Berhasil', 'Berkas berhasil dibuat dan siap dibagikan.');
+      } else {
+        Alert.alert('Export Gagal', err.message || 'Gagal mengekspor data ke format CSV.');
+      }
     } finally {
       setIsExporting(false);
     }

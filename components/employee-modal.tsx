@@ -7,6 +7,9 @@ import {
   TextInput,
   TouchableOpacity,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 import { Colors } from '../constants/theme';
@@ -22,7 +25,7 @@ interface EmployeeModalProps {
 
 export function EmployeeModal({ visible, employee, onClose }: EmployeeModalProps) {
   const db = useSQLiteContext();
-  const { addEmployee, updateEmployee, deleteEmployee } = useEmployeeStore();
+  const { employees, addEmployee, updateEmployee, deleteEmployee } = useEmployeeStore();
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -39,17 +42,28 @@ export function EmployeeModal({ visible, employee, onClose }: EmployeeModalProps
   }, [employee, visible]);
 
   const handleSave = async () => {
-    if (!name.trim()) {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
       Alert.alert('Perhatian', 'Nama karyawan wajib diisi.');
+      return;
+    }
+
+    const isDuplicate = employees.some(
+      (e) => e.name.trim().toLowerCase() === trimmedName.toLowerCase() && e.id !== employee?.id
+    );
+    if (isDuplicate) {
+      Alert.alert('Perhatian', 'Nama karyawan sudah terdaftar.');
       return;
     }
 
     setIsSubmitting(true);
     try {
       if (employee) {
-        await updateEmployee(db, employee.id, name.trim(), phone.trim());
+        await updateEmployee(db, employee.id, trimmedName, phone.trim());
+        Alert.alert('Sukses', 'Data karyawan berhasil diperbarui.');
       } else {
-        await addEmployee(db, name.trim(), phone.trim());
+        await addEmployee(db, trimmedName, phone.trim());
+        Alert.alert('Sukses', 'Karyawan baru berhasil didaftarkan.');
       }
       setIsSubmitting(false);
       onClose();
@@ -72,6 +86,7 @@ export function EmployeeModal({ visible, employee, onClose }: EmployeeModalProps
           onPress: async () => {
             try {
               await deleteEmployee(db, employee.id);
+              Alert.alert('Sukses', 'Karyawan berhasil dihapus.');
               onClose();
             } catch (err: any) {
               Alert.alert('Gagal', err?.message || 'Gagal menghapus karyawan');
@@ -84,7 +99,10 @@ export function EmployeeModal({ visible, employee, onClose }: EmployeeModalProps
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.overlay}>
+      <KeyboardAvoidingView
+        style={styles.overlay}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
         <Card style={styles.modalCard}>
           <View style={styles.header}>
             <Text style={styles.title}>
@@ -95,26 +113,28 @@ export function EmployeeModal({ visible, employee, onClose }: EmployeeModalProps
             </TouchableOpacity>
           </View>
 
-          <View style={styles.form}>
-            <Text style={styles.label}>Nama Lengkap Karyawan *</Text>
-            <TextInput
-              style={styles.input}
-              value={name}
-              onChangeText={setName}
-              placeholder="Contoh: Budi Santoso"
-              placeholderTextColor={Colors.placeholder}
-            />
+          <ScrollView style={styles.scrollArea} keyboardShouldPersistTaps="handled">
+            <View style={styles.form}>
+              <Text style={styles.label}>Nama Lengkap Karyawan *</Text>
+              <TextInput
+                style={styles.input}
+                value={name}
+                onChangeText={setName}
+                placeholder="Contoh: Budi Santoso"
+                placeholderTextColor={Colors.placeholder}
+              />
 
-            <Text style={[styles.label, { marginTop: 12 }]}>Nomor WhatsApp / HP (Opsional)</Text>
-            <TextInput
-              style={styles.input}
-              value={phone}
-              onChangeText={setPhone}
-              keyboardType="phone-pad"
-              placeholder="Contoh: 0812-3456-7890"
-              placeholderTextColor={Colors.placeholder}
-            />
-          </View>
+              <Text style={[styles.label, { marginTop: 12 }]}>Nomor WhatsApp / HP (Opsional)</Text>
+              <TextInput
+                style={styles.input}
+                value={phone}
+                onChangeText={setPhone}
+                keyboardType="phone-pad"
+                placeholder="Contoh: 0812-3456-7890"
+                placeholderTextColor={Colors.placeholder}
+              />
+            </View>
+          </ScrollView>
 
           <View style={styles.actions}>
             {employee && (
@@ -143,7 +163,7 @@ export function EmployeeModal({ visible, employee, onClose }: EmployeeModalProps
             />
           </View>
         </Card>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -159,9 +179,13 @@ const styles = StyleSheet.create({
   modalCard: {
     width: '100%',
     maxWidth: 420,
+    maxHeight: '90%',
     backgroundColor: '#ffffff',
     borderRadius: 8,
     padding: 22,
+  },
+  scrollArea: {
+    maxHeight: 360,
   },
   header: {
     flexDirection: 'row',

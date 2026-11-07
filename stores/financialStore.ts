@@ -138,6 +138,7 @@ interface FinancialState {
   cashEntries: CashEntry[];
   summary: FinancialSummary;
   selectedMonth: string; // 'YYYY-MM'
+  lastPeriodQuery?: FinancialPeriodQuery;
   isLoading: boolean;
 
   setSelectedMonth: (month: string) => void;
@@ -161,6 +162,7 @@ export const useFinancialStore = create<FinancialState>((set, get) => {
   return {
     cashEntries: [],
     selectedMonth: currentMonth,
+    lastPeriodQuery: { mode: 'month' },
     isLoading: false,
     summary: {
       periodMonth: currentMonth,
@@ -218,8 +220,12 @@ export const useFinancialStore = create<FinancialState>((set, get) => {
         'business_date'
       );
       const targetMonthKey = customVal && customVal.length >= 7 ? customVal.substring(0, 7) : today.substring(0, 7);
+      const currentQuery: FinancialPeriodQuery =
+        typeof periodArg === 'object'
+          ? periodArg
+          : { mode, targetMonth: targetMonthKey, customDate: mode === 'custom_date' ? customVal : undefined };
 
-      set({ isLoading: true });
+      set({ lastPeriodQuery: currentQuery, isLoading: true });
 
       try {
         // 1. Ambil Penjualan Transaksi & Breakdown Metode Bayar pada Periode Terpilih
@@ -349,7 +355,8 @@ export const useFinancialStore = create<FinancialState>((set, get) => {
         )
       );
 
-      await get().loadFinancialData(db, get().selectedMonth);
+      const lastQuery = get().lastPeriodQuery;
+      await get().loadFinancialData(db, lastQuery || get().selectedMonth);
       return res.lastInsertRowId;
     },
 
@@ -357,7 +364,8 @@ export const useFinancialStore = create<FinancialState>((set, get) => {
       await withSqliteRetry(() =>
         db.runAsync('DELETE FROM cash_ledger WHERE id = ?', [id])
       );
-      await get().loadFinancialData(db, get().selectedMonth);
+      const lastQuery = get().lastPeriodQuery;
+      await get().loadFinancialData(db, lastQuery || get().selectedMonth);
     },
 
     saveMonthlyCogs: async (db, periodMonth, cogsAmount, notes = '') => {
@@ -372,7 +380,8 @@ export const useFinancialStore = create<FinancialState>((set, get) => {
           [periodMonth, cogsAmount, notes.trim()]
         )
       );
-      await get().loadFinancialData(db, periodMonth);
+      const lastQuery = get().lastPeriodQuery;
+      await get().loadFinancialData(db, lastQuery || periodMonth);
     },
   };
 });

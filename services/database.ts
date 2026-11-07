@@ -56,6 +56,11 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase): Promise<void> {
       await db.runAsync("UPDATE cash_ledger SET type = 'income' WHERE type = 'in'");
     } catch {}
 
+    // Migrasi soft-delete menus: pastikan kolom is_active tersedia
+    try {
+      await db.runAsync('ALTER TABLE menus ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1');
+    } catch {}
+
     const DATABASE_VERSION = 1;
     const versionRow = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
     const currentVersion = versionRow?.user_version ?? 0;
@@ -106,6 +111,7 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase): Promise<void> {
         barcode TEXT DEFAULT '',
         track_stock INTEGER NOT NULL DEFAULT 0,
         stock INTEGER NOT NULL DEFAULT 0,
+        is_active INTEGER NOT NULL DEFAULT 1,
         created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
       );
 
@@ -134,7 +140,7 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase): Promise<void> {
       CREATE TABLE IF NOT EXISTS transaction_items (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         transaction_id INTEGER NOT NULL REFERENCES transactions(id) ON DELETE CASCADE,
-        menu_id INTEGER NOT NULL REFERENCES menus(id),
+        menu_id INTEGER REFERENCES menus(id) ON DELETE SET NULL,
         menu_name TEXT NOT NULL,
         price REAL NOT NULL,
         qty INTEGER NOT NULL,
@@ -272,34 +278,47 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase): Promise<void> {
       INSERT OR IGNORE INTO categories (id, name, icon) VALUES (4, 'Wedangan / Minuman', 'cafe');
       INSERT OR IGNORE INTO categories (id, name, icon) VALUES (5, 'Camilan', 'nutrition');
 
-      -- Contoh Menu Angkringan Otentik
-      INSERT OR IGNORE INTO menus (id, name, price, category_id, track_stock, stock) VALUES
-        (1, 'Nasi Kucing Sambal Teri', 5000, 1, 0, 0),
-        (2, 'Nasi Kucing Oseng Tempe', 5000, 1, 0, 0),
-        (3, 'Nasi Kucing Bandeng', 5000, 1, 0, 0),
-        (4, 'Sate Usus Bakar', 3000, 2, 0, 0),
-        (5, 'Sate Telur Puyuh', 4000, 2, 0, 0),
-        (6, 'Sate Kulit Ayam', 3500, 2, 0, 0),
-        (7, 'Sate Cecek Pedas', 3000, 2, 0, 0),
-        (8, 'Tempe Mendoan Hangat', 2000, 3, 0, 0),
-        (9, 'Bakwan Sayur Krispi', 2000, 3, 0, 0),
-        (10, 'Tahu Isi Pedas', 2000, 3, 0, 0),
-        (11, 'Wedang Jahe Geprek', 6000, 4, 0, 0),
-        (12, 'Kopi Jos Arang Membara', 7000, 4, 0, 0),
-        (13, 'Teh Kampul Solo', 5000, 4, 0, 0),
-        (14, 'Wedang Uwuh Rempah', 7000, 4, 0, 0),
-        (15, 'Susu Jahe Hangat', 7000, 4, 0, 0),
-        (16, 'Jadah Bakar Manis Gurih', 4000, 5, 0, 0);
-
       -- Tingkatan Reward Default
       INSERT OR IGNORE INTO rewards (id, tier_name, min_spend, reward_description) VALUES
         (1, 'Tier 1: Sahabat Angkringan', 300000, 'Gratis 1 Porsi Wedang Jahe / Teh Kampul'),
         (2, 'Tier 2: Langganan Setia', 600000, 'Gratis 3 Tusuk Sate Pilihan + 1 Nasi Kucing'),
         (3, 'Tier 3: Juragan Angkringan', 1000000, 'Potongan Langsung Rp 25.000 pada Transaksi');
-
-      -- Set Database Version ke 1
-      PRAGMA user_version = 1;
     `);
+
+    // Inisialisasi Menu Awal HANYA SEKALI (Permanent Deletion Support)
+    const seedMenusAppliedRow = await db.getFirstAsync<{ value: string }>(
+      "SELECT value FROM settings WHERE key = 'seed_menus_applied'"
+    );
+    if (seedMenusAppliedRow?.value !== '1') {
+      const menuCountRow = await db.getFirstAsync<{ count: number }>(
+        'SELECT COUNT(*) as count FROM menus'
+      );
+      if ((menuCountRow?.count ?? 0) === 0) {
+        await db.execAsync(`
+          INSERT OR IGNORE INTO menus (id, name, price, category_id, track_stock, stock, is_active) VALUES
+            (1, 'Nasi Kucing Sambal Teri', 5000, 1, 0, 0, 1),
+            (2, 'Nasi Kucing Oseng Tempe', 5000, 1, 0, 0, 1),
+            (3, 'Nasi Kucing Bandeng', 5000, 1, 0, 0, 1),
+            (4, 'Sate Usus Bakar', 3000, 2, 0, 0, 1),
+            (5, 'Sate Telur Puyuh', 4000, 2, 0, 0, 1),
+            (6, 'Sate Kulit Ayam', 3500, 2, 0, 0, 1),
+            (7, 'Sate Cecek Pedas', 3000, 2, 0, 0, 1),
+            (8, 'Tempe Mendoan Hangat', 2000, 3, 0, 0, 1),
+            (9, 'Bakwan Sayur Krispi', 2000, 3, 0, 0, 1),
+            (10, 'Tahu Isi Pedas', 2000, 3, 0, 0, 1),
+            (11, 'Wedang Jahe Geprek', 6000, 4, 0, 0, 1),
+            (12, 'Kopi Jos Arang Membara', 7000, 4, 0, 0, 1),
+            (13, 'Teh Kampul Solo', 5000, 4, 0, 0, 1),
+            (14, 'Wedang Uwuh Rempah', 7000, 4, 0, 0, 1),
+            (15, 'Susu Jahe Hangat', 7000, 4, 0, 0, 1),
+            (16, 'Jadah Bakar Manis Gurih', 4000, 5, 0, 0, 1);
+        `);
+      }
+      await db.runAsync("INSERT OR REPLACE INTO settings (key, value) VALUES ('seed_menus_applied', '1')");
+    }
+
+    // Set Database Version ke 1 secara eksplisit via runAsync di luar multi-statement string
+    await db.runAsync('PRAGMA user_version = 1');
   })();
 
   return migrationPromise;

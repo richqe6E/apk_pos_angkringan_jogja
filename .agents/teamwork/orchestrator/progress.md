@@ -1,42 +1,34 @@
-# Progress — POS Angkringan Jogja (Pure Android)
+# Progress — POS Angkringan Jogja (Operational Enhancements & Bug Fixes R1-R8)
 
 ## Current Status
-Last visited: 2026-11-07T05:23:45Z
-- Phase 0: COMPLETED.
-- Phase 1 (Dual Track Execution): COMPLETED.
-  - E2E Testing Track (Tiers 1-4) -> COMPLETED.
-  - Milestone 1 (Financial & DB Integrity - R2) -> COMPLETED.
-  - Milestone 2 (Menu Management & Android Focus - R3) -> COMPLETED.
-  - Milestone 3 (Table Management & Kitchen Tickets - R4) -> COMPLETED.
-  - Milestone 4 (Reports, History & CSV - R5) -> COMPLETED.
-- Phase 2 (Final Integration, Hardening & Forensic Audit): COMPLETED.
-  - Tier 5 adversarial tests (Challenger 1): 28/28 tests passed 100%, verdict APPROVE.
-  - Comprehensive PRD code review (Reviewer 1): verdict APPROVE.
-  - Forensic integrity audit (Auditor 1): verdict CLEAN.
-  - GATE RESULT: **PASS**.
+Last visited: 2026-11-07T10:35:30Z
+- Phase 0: Survey & Codebase Investigation (IN PROGRESS)
+  - explorer_survey_op_1: Active, examining Menu (R1) & Modals Part 1 (R2).
+  - explorer_survey_op_2: Active, examining Modals Part 2 (R2), Struk Tagihan (R3), Dynamic Tables (R4).
+  - explorer_survey_op_3: Active, examining Cashier ID (R5), Calendar Attendance (R6), QRIS & Multi-Bank (R7), Test Suite (R8).
+- Phase 1: Planning & Milestone Decomposition (PENDING)
+- Phase 2: Dual Track Execution (PENDING)
+- Phase 3: Hardening, Ponytail Audit & Forensic Verification (PENDING)
 
 ## Iteration Status
-Current iteration: 6 / 32
+Current iteration: 1 / 32
 
 ## Checklist
-- [x] Initial setup: ORIGINAL_REQUEST.md, DISPATCH.md, BRIEFING.md, plan.md, progress.md initialized
-- [x] Phase 0: Survey & Ponytail Initial Audit & Work Plan (R1)
-  - [x] Dispatch 3 parallel Explorers (Financial/DB, Menu/Android UX, Table/Order/Tests)
-  - [x] Collect Explorer reports & ponytail debt ledger
-  - [x] Formulate comprehensive Audit Findings & Structured Repair Plan
-  - [x] Create PROJECT.md (Architecture, Feature Inventory, Milestones, Code Layout)
-  - [x] Present Audit Findings & Repair Plan to Sentinel / Human before code modification
-- [x] Phase 1: Dual Track Execution
-  - [x] E2E Testing Track (Tiers 1-4) -> TEST_READY.md (15 tests passing)
-  - [x] Implementation Track:
-    - [x] Milestone 1: Financial, Cash In & Transaction Integrity (R2)
-    - [x] Milestone 2: Menu Management & Pure Android Focus (R3)
-    - [x] Milestone 3: Table Management, Kitchen Tickets & Merge (R4)
-    - [x] Milestone 4: Financial Reports, History Sync & CSV Export (R5)
-- [x] Phase 2: Final Integration, Hardening & Forensic Audit
-  - [x] Tier 5 adversarial hardening (Challenger 1 verdict APPROVE)
-  - [x] PRD Review & acceptance criteria check (Reviewer 1 verdict APPROVE)
-  - [x] Forensic Auditor integrity verification (Auditor 1 verdict CLEAN)
-  - [x] All 28 automated tests passing across Tiers 1-5
-  - [x] TypeScript compiler 0 errors (`tsc --noEmit`)
-  - [x] Victory Claim to Sentinel
+- [x] Initial setup: DISPATCH.md and BRIEFING.md updated for new task R1-R8
+- [ ] Phase 0: Survey & Codebase Investigation
+  - [x] Dispatch 3 parallel Explorers
+  - [ ] Collect Explorer handoff reports
+  - [ ] Update PROJECT.md (Architecture, Feature Inventory R1-R8, Milestones, Contracts)
+- [ ] Phase 1 & 2: Implementation & E2E Testing Dual Track
+  - [ ] Milestone 1: Menu Management & Quick Edit Fixes (R1) & Category Modal (R2)
+  - [ ] Milestone 2: Top-Right Action Modals (History PDF/CSV, Attendance Employee Add, Global HPP, Reward Levels, Supplier New & Purchase) (R2)
+  - [ ] Milestone 3: Dynamic Table Management (R4) & Cashier Flow Integration
+  - [ ] Milestone 4: Cashier Identity Selection & Receipt Attribution (R5)
+  - [ ] Milestone 5: Interactive Calendar Attendance Recap (R6)
+  - [ ] Milestone 6: Settings QRIS & Multi-Bank Accounts Integration with Cashier Payment (R7)
+  - [ ] Written Evaluation Reports: Struk Tagihan Sementara (R3) & Bank Reconciliation Approaches (R7)
+- [ ] Phase 3: Comprehensive Verification & Audit (R8)
+  - [ ] Automated Test Suite verification (Tiers 1-5, all passing without regression)
+  - [ ] /ponytail-audit and /ponytail-review quality check
+  - [ ] Forensic integrity audit (teamwork_auditor)
+  - [ ] Comprehensive Final Report compilation (R8)
