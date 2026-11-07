@@ -22,6 +22,14 @@ export interface PendingOrderSummary {
   total: number;
   created_at: string;
   item_count: number;
+  status: string;
+}
+
+export interface StoreProfile {
+  storeName: string;
+  storeAddress: string;
+  storePhone: string;
+  receiptFooter: string;
 }
 
 interface TransactionState {
@@ -37,6 +45,8 @@ interface TransactionState {
   discountAmount: number;
   isCheckingOut: boolean;
   pendingOrders: PendingOrderSummary[];
+  pendingBaselineQuantities: Record<number, number>;
+  storeProfile: StoreProfile;
 
   // Getters
   getSubtotal: () => number;
@@ -52,11 +62,28 @@ interface TransactionState {
   setCustomer: (id: number | null, name: string, totalSpent?: number, eligibleReward?: string | null) => void;
   setDiscountAmount: (amount: number) => void;
   setTaxSettings: (enabled: boolean, rate: number) => void;
+  setStoreProfile: (profile: Partial<StoreProfile>) => void;
+  loadStoreSettings: (db: SQLiteDatabase) => Promise<void>;
 
   // Pending & Meja
   loadPendingOrders: (db: SQLiteDatabase) => Promise<void>;
   openPendingOrder: (db: SQLiteDatabase, txId: number) => Promise<void>;
-  saveAsPendingOrder: (db: SQLiteDatabase) => Promise<{ txId: number; invoiceNumber: string; isNew: boolean }>;
+  markTableAsBilling: (db: SQLiteDatabase, txId: number) => Promise<void>;
+  saveAsPendingOrder: (db: SQLiteDatabase) => Promise<{
+    txId: number;
+    invoiceNumber: string;
+    tableNumber: string;
+    isAdditional: boolean;
+    isNew: boolean;
+    deltaItems: {
+      menu_id: number;
+      name: string;
+      price: number;
+      qty: number;
+      subtotal: number;
+      is_additional: number;
+    }[];
+  }>;
   mergeTables: (db: SQLiteDatabase, sourceTxIds: number[], targetTableNumber: string) => Promise<number>;
 
   // Checkout Pembayaran (Dua Tahap)
@@ -71,6 +98,7 @@ interface TransactionState {
     paymentAmount: number;
     change: number;
     dailySeq: number;
+    paymentMethod: 'tunai' | 'qris' | 'transfer';
   }>;
 }
 
@@ -87,6 +115,13 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
   discountAmount: 0,
   isCheckingOut: false,
   pendingOrders: [],
+  pendingBaselineQuantities: {},
+  storeProfile: {
+    storeName: 'Angkringan Jogja',
+    storeAddress: 'Jl. Malioboro No. 45, Yogyakarta',
+    storePhone: '0812-3456-7890',
+    receiptFooter: 'Matur Nuwun Sampun Rawuh!',
+  },
 
   getSubtotal: () => {
     return get().cart.reduce((sum, item) => sum + item.price * item.qty, 0);
@@ -169,6 +204,7 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
       customerTotalSpent: 0,
       eligibleReward: null,
       discountAmount: 0,
+      pendingBaselineQuantities: {},
     });
   },
 
@@ -193,6 +229,38 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
     set({ taxEnabled: enabled, taxRate: rate });
   },
 
+  setStoreProfile: (profile: Partial<StoreProfile>) => {
+    set((state) => ({ storeProfile: { ...state.storeProfile, ...profile } }));
+  },
+
+  loadStoreSettings: async (db: SQLiteDatabase) => {
+    try {
+      const rows = await withSqliteRetry(() =>
+        db.getAllAsync<{ key: string; value: string }>('SELECT key, value FROM settings')
+      );
+      const map: Record<string, string> = {};
+      (rows || []).forEach((r) => {
+        map[r.key] = r.value;
+      });
+
+      set((state) => ({
+        storeProfile: {
+          storeName: map.store_name || state.storeProfile.storeName,
+          storeAddress: map.store_address || state.storeProfile.storeAddress,
+          storePhone: map.store_phone || state.storeProfile.storePhone,
+          receiptFooter: map.receipt_footer || state.storeProfile.receiptFooter,
+        },
+        taxEnabled:
+          map.tax_enabled !== undefined
+            ? map.tax_enabled === '1' || map.tax_enabled === 'true'
+            : state.taxEnabled,
+        taxRate: map.tax_rate ? parseFloat(map.tax_rate) : state.taxRate,
+      }));
+    } catch (err) {
+      console.warn('Error loading store settings into transactionStore:', err);
+    }
+  },
+
   loadPendingOrders: async (db: SQLiteDatabase) => {
     try {
       const rows = await withSqliteRetry(() =>
@@ -205,9 +273,10 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
             t.subtotal,
             t.total,
             t.created_at,
+            t.status,
             (SELECT COUNT(*) FROM transaction_items WHERE transaction_id = t.id) as item_count
           FROM transactions t
-          WHERE t.status = 'pending'
+          WHERE t.status IN ('pending', 'billing')
           ORDER BY t.id DESC
         `)
       );
@@ -220,6 +289,7 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
         subtotal: r.subtotal,
         total: r.total,
         created_at: r.created_at,
+        status: r.status || 'pending',
         item_count: r.item_count,
       }));
 
@@ -243,15 +313,46 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
         )
       );
 
-      const cartItems: CartItem[] = (items || []).map((i) => ({
-        id: `${i.menu_id}-${i.id}`,
+      // Consolidate identical menu items when opening into cart
+      const aggregatedMap = new Map<number, {
+        menu_id: number;
+        name: string;
+        price: number;
+        qty: number;
+        subtotal: number;
+      }>();
+
+      for (const i of items || []) {
+        const existing = aggregatedMap.get(i.menu_id);
+        if (existing) {
+          existing.qty += i.qty;
+          existing.subtotal += i.subtotal;
+        } else {
+          aggregatedMap.set(i.menu_id, {
+            menu_id: i.menu_id,
+            name: i.menu_name,
+            price: i.price,
+            qty: i.qty,
+            subtotal: i.subtotal,
+          });
+        }
+      }
+
+      const cartItems: CartItem[] = Array.from(aggregatedMap.values()).map((i) => ({
+        id: `${i.menu_id}-${Date.now()}`,
         menu_id: i.menu_id,
-        name: i.menu_name,
+        name: i.name,
         price: i.price,
         qty: i.qty,
         subtotal: i.subtotal,
         is_additional: 0, // pesanan yang sudah tersimpan
       }));
+
+      // Baseline quantities map for delta tracking
+      const baseline: Record<number, number> = {};
+      for (const item of cartItems) {
+        baseline[item.menu_id] = item.qty;
+      }
 
       // Ambil data customer jika ada
       let totalSpent = 0;
@@ -281,10 +382,18 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
         eligibleReward,
         discountAmount: tx.discount_amount || 0,
         cart: cartItems,
+        pendingBaselineQuantities: baseline,
       });
     } catch (err) {
       console.error('Error opening pending order:', err);
     }
+  },
+
+  markTableAsBilling: async (db: SQLiteDatabase, txId: number) => {
+    await withSqliteRetry(() =>
+      db.runAsync("UPDATE transactions SET status = 'billing' WHERE id = ?", [txId])
+    );
+    await get().loadPendingOrders(db);
   },
 
   saveAsPendingOrder: async (db: SQLiteDatabase) => {
@@ -295,6 +404,7 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
       customerName,
       discountAmount,
       activePendingTransactionId,
+      pendingBaselineQuantities,
       getSubtotal,
       getTaxAmount,
       getTotal,
@@ -310,30 +420,104 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
     const total = getTotal();
 
     if (activePendingTransactionId) {
-      // UPDATE transaksi pending yang sudah ada (tambahkan item baru / perbarui kuantitas)
-      await withSqliteRetry(() =>
-        db.runAsync(
-          `UPDATE transactions
-           SET subtotal = ?, tax_amount = ?, discount_amount = ?, total = ?, table_number = ?, customer_name = ?
-           WHERE id = ?`,
-          [subtotal, taxAmount, discountAmount, total, tableNumber, customerName, activePendingTransactionId]
-        )
-      );
+      // Calculate delta items against baseline for additional orders
+      const deltaItems: {
+        menu_id: number;
+        name: string;
+        price: number;
+        qty: number;
+        subtotal: number;
+        is_additional: number;
+      }[] = [];
 
-      // Hapus item lama lalu tulis ulang seluruh item
-      await withSqliteRetry(() =>
-        db.runAsync('DELETE FROM transaction_items WHERE transaction_id = ?', [activePendingTransactionId])
-      );
+      const itemsToInsert: {
+        menu_id: number;
+        name: string;
+        price: number;
+        qty: number;
+        subtotal: number;
+        is_additional: number;
+      }[] = [];
 
       for (const item of cart) {
-        await withSqliteRetry(() =>
-          db.runAsync(
-            `INSERT INTO transaction_items (transaction_id, menu_id, menu_name, price, qty, subtotal, is_additional)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [activePendingTransactionId, item.menu_id, item.name, item.price, item.qty, item.subtotal, item.is_additional]
-          )
-        );
+        const baseQty = pendingBaselineQuantities[item.menu_id] || 0;
+        if (item.qty > baseQty) {
+          if (baseQty > 0) {
+            // Baseline portion (is_additional = 0)
+            itemsToInsert.push({
+              menu_id: item.menu_id,
+              name: item.name,
+              price: item.price,
+              qty: baseQty,
+              subtotal: baseQty * item.price,
+              is_additional: 0,
+            });
+            // Delta portion (is_additional = 1)
+            const deltaQty = item.qty - baseQty;
+            const deltaRow = {
+              menu_id: item.menu_id,
+              name: item.name,
+              price: item.price,
+              qty: deltaQty,
+              subtotal: deltaQty * item.price,
+              is_additional: 1,
+            };
+            itemsToInsert.push(deltaRow);
+            deltaItems.push(deltaRow);
+          } else {
+            // Entire item is new addition
+            const deltaRow = {
+              menu_id: item.menu_id,
+              name: item.name,
+              price: item.price,
+              qty: item.qty,
+              subtotal: item.subtotal,
+              is_additional: 1,
+            };
+            itemsToInsert.push(deltaRow);
+            deltaItems.push(deltaRow);
+          }
+        } else {
+          // Existing baseline items
+          itemsToInsert.push({
+            menu_id: item.menu_id,
+            name: item.name,
+            price: item.price,
+            qty: item.qty,
+            subtotal: item.subtotal,
+            is_additional: 0,
+          });
+        }
       }
+
+      // UPDATE transaksi pending yang sudah ada secara atomik
+      await withSqliteRetry(() =>
+        db.withTransactionAsync(async () => {
+          await db.runAsync(
+            `UPDATE transactions
+             SET subtotal = ?, tax_amount = ?, discount_amount = ?, total = ?, table_number = ?, customer_name = ?
+             WHERE id = ?`,
+            [subtotal, taxAmount, discountAmount, total, tableNumber, customerName, activePendingTransactionId]
+          );
+
+          await db.runAsync('DELETE FROM transaction_items WHERE transaction_id = ?', [activePendingTransactionId]);
+
+          for (const row of itemsToInsert) {
+            await db.runAsync(
+              `INSERT INTO transaction_items (transaction_id, menu_id, menu_name, price, qty, subtotal, is_additional)
+               VALUES (?, ?, ?, ?, ?, ?, ?)`,
+              [activePendingTransactionId, row.menu_id, row.name, row.price, row.qty, row.subtotal, row.is_additional]
+            );
+          }
+        })
+      );
+
+      // Update baseline quantities to reflect current state
+      const newBaseline: Record<number, number> = {};
+      for (const item of cart) {
+        newBaseline[item.menu_id] = item.qty;
+      }
+      set({ pendingBaselineQuantities: newBaseline });
 
       const txRow = await db.getFirstAsync<{ invoice_number: string }>(
         'SELECT invoice_number FROM transactions WHERE id = ?',
@@ -341,54 +525,72 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
       );
 
       await get().loadPendingOrders(db);
-      return { txId: activePendingTransactionId, invoiceNumber: txRow?.invoice_number || '', isNew: false };
+      return {
+        txId: activePendingTransactionId,
+        invoiceNumber: txRow?.invoice_number || '',
+        tableNumber,
+        isAdditional: deltaItems.length > 0,
+        isNew: false,
+        deltaItems,
+      };
     }
 
-    // TRANSAKSI PENDING BARU: Buat nomor nota atomik
-    const counterRow = await withSqliteRetry(() =>
-      db.getFirstAsync<{ last_seq: number }>(
-        'SELECT last_seq FROM daily_counters WHERE business_date = ?',
-        [businessDate]
-      )
-    );
-    const nextSeq = (counterRow?.last_seq ?? 0) + 1;
+    // TRANSAKSI PENDING BARU: Buat nomor nota atomik dalam transaksi database
+    let newTxId = 0;
+    let invoiceNumber = '';
+
     await withSqliteRetry(() =>
-      db.runAsync(
-        `INSERT INTO daily_counters (business_date, last_seq) VALUES (?, ?)
-         ON CONFLICT(business_date) DO UPDATE SET last_seq = ?`,
-        [businessDate, nextSeq, nextSeq]
-      )
+      db.withTransactionAsync(async () => {
+        const counterRow = await db.getFirstAsync<{ last_seq: number }>(
+          'SELECT last_seq FROM daily_counters WHERE business_date = ?',
+          [businessDate]
+        );
+        const nextSeq = (counterRow?.last_seq ?? 0) + 1;
+        await db.runAsync(
+          `INSERT INTO daily_counters (business_date, last_seq) VALUES (?, ?)
+           ON CONFLICT(business_date) DO UPDATE SET last_seq = ?`,
+          [businessDate, nextSeq, nextSeq]
+        );
+
+        const [y, m, d] = businessDate.split('-');
+        invoiceNumber = `INV-${d}${m}${y.slice(2)}-${String(nextSeq).padStart(3, '0')}`;
+
+        const res = await db.runAsync(
+          `INSERT INTO transactions (
+            invoice_number, business_date, table_number, customer_id, customer_name,
+            subtotal, tax_amount, discount_amount, total, payment_method, payment_amount,
+            change_amount, status
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'tunai', 0, 0, 'pending')`,
+          [invoiceNumber, businessDate, tableNumber, customerId, customerName, subtotal, taxAmount, discountAmount, total]
+        );
+
+        newTxId = res.lastInsertRowId;
+
+        for (const item of cart) {
+          await db.runAsync(
+            `INSERT INTO transaction_items (transaction_id, menu_id, menu_name, price, qty, subtotal, is_additional)
+             VALUES (?, ?, ?, ?, ?, ?, 0)`,
+            [newTxId, item.menu_id, item.name, item.price, item.qty, item.subtotal]
+          );
+        }
+      })
     );
 
-    const [y, m, d] = businessDate.split('-');
-    const invoiceNumber = `INV-${d}${m}${y.slice(2)}-${String(nextSeq).padStart(3, '0')}`;
-
-    const res = await withSqliteRetry(() =>
-      db.runAsync(
-        `INSERT INTO transactions (
-          invoice_number, business_date, table_number, customer_id, customer_name,
-          subtotal, tax_amount, discount_amount, total, payment_method, payment_amount,
-          change_amount, status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'tunai', 0, 0, 'pending')`,
-        [invoiceNumber, businessDate, tableNumber, customerId, customerName, subtotal, taxAmount, discountAmount, total]
-      )
-    );
-
-    const newTxId = res.lastInsertRowId;
-
+    const initialBaseline: Record<number, number> = {};
     for (const item of cart) {
-      await withSqliteRetry(() =>
-        db.runAsync(
-          `INSERT INTO transaction_items (transaction_id, menu_id, menu_name, price, qty, subtotal, is_additional)
-           VALUES (?, ?, ?, ?, ?, ?, 0)`,
-          [newTxId, item.menu_id, item.name, item.price, item.qty, item.subtotal]
-        )
-      );
+      initialBaseline[item.menu_id] = item.qty;
     }
 
-    set({ activePendingTransactionId: newTxId });
+    set({ activePendingTransactionId: newTxId, pendingBaselineQuantities: initialBaseline });
     await get().loadPendingOrders(db);
-    return { txId: newTxId, invoiceNumber, isNew: true };
+    return {
+      txId: newTxId,
+      invoiceNumber,
+      tableNumber,
+      isAdditional: false,
+      isNew: true,
+      deltaItems: [],
+    };
   },
 
   mergeTables: async (db: SQLiteDatabase, sourceTxIds: number[], targetTableNumber: string) => {
@@ -396,42 +598,74 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
       throw new Error('Pilih minimal 2 meja pending untuk digabung.');
     }
 
-    // Ambil meja pertama sebagai target transaksi induk
+    const { taxEnabled, taxRate } = get();
     const primaryId = sourceTxIds[0];
     const otherIds = sourceTxIds.slice(1);
 
-    // Ambil semua item dari transaksi-transaksi yang digabung
-    for (const otherId of otherIds) {
-      await withSqliteRetry(() =>
-        db.runAsync(
-          `UPDATE transaction_items SET transaction_id = ?, is_additional = 1 WHERE transaction_id = ?`,
-          [primaryId, otherId]
-        )
-      );
-
-      // Tandai transaksi lain sebagai merged
-      await withSqliteRetry(() =>
-        db.runAsync(
-          `UPDATE transactions SET status = 'merged', merged_into_tx_id = ? WHERE id = ?`,
-          [primaryId, otherId]
-        )
-      );
-    }
-
-    // Hitung ulang total di primary transaksi
-    const sumRow = await withSqliteRetry(() =>
-      db.getFirstAsync<{ new_subtotal: number }>(
-        `SELECT SUM(subtotal) as new_subtotal FROM transaction_items WHERE transaction_id = ?`,
-        [primaryId]
-      )
-    );
-
-    const newSubtotal = sumRow?.new_subtotal || 0;
     await withSqliteRetry(() =>
-      db.runAsync(
-        `UPDATE transactions SET table_number = ?, subtotal = ?, total = ? WHERE id = ?`,
-        [targetTableNumber, newSubtotal, newSubtotal, primaryId]
-      )
+      db.withTransactionAsync(async () => {
+        const placeholders = sourceTxIds.map(() => '?').join(',');
+
+        // 1. Gather all items across all transactions to merge, consolidated by (menu_id, price)
+        const allItems = await db.getAllAsync<{
+          menu_id: number;
+          menu_name: string;
+          price: number;
+          total_qty: number;
+          total_subtotal: number;
+          had_additional: number;
+        }>(
+          `SELECT menu_id, menu_name, price, SUM(qty) as total_qty, SUM(subtotal) as total_subtotal,
+                  MAX(is_additional) as had_additional
+           FROM transaction_items
+           WHERE transaction_id IN (${placeholders})
+           GROUP BY menu_id, price`,
+          sourceTxIds
+        );
+
+        // 2. Sum discounts across all transactions
+        const discountRow = await db.getFirstAsync<{ total_discount: number }>(
+          `SELECT SUM(discount_amount) as total_discount FROM transactions WHERE id IN (${placeholders})`,
+          sourceTxIds
+        );
+        const totalDiscount = discountRow?.total_discount || 0;
+
+        // 3. Mark other transactions as merged
+        for (const otherId of otherIds) {
+          await db.runAsync(
+            `UPDATE transactions SET status = 'merged', merged_into_tx_id = ? WHERE id = ?`,
+            [primaryId, otherId]
+          );
+        }
+
+        // 4. Delete old items of all source transactions
+        await db.runAsync(
+          `DELETE FROM transaction_items WHERE transaction_id IN (${placeholders})`,
+          sourceTxIds
+        );
+
+        // 5. Insert deduplicated items into primary transaction
+        let newSubtotal = 0;
+        for (const item of allItems || []) {
+          newSubtotal += item.total_subtotal;
+          await db.runAsync(
+            `INSERT INTO transaction_items (transaction_id, menu_id, menu_name, price, qty, subtotal, is_additional)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [primaryId, item.menu_id, item.menu_name, item.price, item.total_qty, item.total_subtotal, item.had_additional]
+          );
+        }
+
+        // 6. Recalculate PB1 tax and total
+        const newTaxAmount = taxEnabled ? Math.round((newSubtotal * taxRate) / 100) : 0;
+        const newTotal = Math.max(0, newSubtotal + newTaxAmount - totalDiscount);
+
+        await db.runAsync(
+          `UPDATE transactions
+           SET table_number = ?, subtotal = ?, tax_amount = ?, discount_amount = ?, total = ?
+           WHERE id = ?`,
+          [targetTableNumber, newSubtotal, newTaxAmount, totalDiscount, newTotal, primaryId]
+        );
+      })
     );
 
     await get().loadPendingOrders(db);
@@ -473,146 +707,128 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
       const taxAmount = getTaxAmount();
       const change = paymentMethod === 'tunai' ? Math.max(0, paymentAmount - total) : 0;
 
-      let finalTxId: number;
-      let finalInvoice: string;
+      let finalTxId: number = 0;
+      let finalInvoice: string = '';
       let dailySeq = 1;
 
-      if (activePendingTransactionId) {
-        // Melunasi transaksi pending yang sudah ada
-        finalTxId = activePendingTransactionId;
-        const txRow = await withSqliteRetry(() =>
-          db.getFirstAsync<{ invoice_number: string }>(
-            'SELECT invoice_number FROM transactions WHERE id = ?',
-            [finalTxId]
-          )
-        );
-        finalInvoice = txRow?.invoice_number || 'INV-PENDING';
+      await withSqliteRetry(() =>
+        db.withTransactionAsync(async () => {
+          if (activePendingTransactionId) {
+            // Melunasi transaksi pending yang sudah ada
+            finalTxId = activePendingTransactionId;
+            const txRow = await db.getFirstAsync<{ invoice_number: string }>(
+              'SELECT invoice_number FROM transactions WHERE id = ?',
+              [finalTxId]
+            );
+            finalInvoice = txRow?.invoice_number || 'INV-PENDING';
 
-        await withSqliteRetry(() =>
-          db.runAsync(
-            `UPDATE transactions
-             SET subtotal = ?, tax_amount = ?, discount_amount = ?, total = ?,
-                 payment_method = ?, payment_amount = ?, change_amount = ?,
-                 status = 'completed', table_number = ?, customer_name = ?
-             WHERE id = ?`,
-            [
-              subtotal,
-              taxAmount,
-              discountAmount,
-              total,
-              paymentMethod,
-              paymentAmount,
-              change,
-              tableNumber,
-              customerName,
-              finalTxId,
-            ]
-          )
-        );
+            await db.runAsync(
+              `UPDATE transactions
+               SET subtotal = ?, tax_amount = ?, discount_amount = ?, total = ?,
+                   payment_method = ?, payment_amount = ?, change_amount = ?,
+                   status = 'completed', table_number = ?, customer_name = ?
+               WHERE id = ?`,
+              [
+                subtotal,
+                taxAmount,
+                discountAmount,
+                total,
+                paymentMethod,
+                paymentAmount,
+                change,
+                tableNumber,
+                customerName,
+                finalTxId,
+              ]
+            );
 
-        // Perbarui item jika ada perubahan di keranjang
-        await withSqliteRetry(() =>
-          db.runAsync('DELETE FROM transaction_items WHERE transaction_id = ?', [finalTxId])
-        );
+            // Perbarui item jika ada perubahan di keranjang
+            await db.runAsync('DELETE FROM transaction_items WHERE transaction_id = ?', [finalTxId]);
 
-        for (const item of cart) {
-          await withSqliteRetry(() =>
-            db.runAsync(
-              `INSERT INTO transaction_items (transaction_id, menu_id, menu_name, price, qty, subtotal, is_additional)
-               VALUES (?, ?, ?, ?, ?, ?, ?)`,
-              [finalTxId, item.menu_id, item.name, item.price, item.qty, item.subtotal, item.is_additional]
-            )
-          );
-        }
-      } else {
-        // Transaksi Baru Langsung Bayar (Direct Checkout)
-        const counterRow = await withSqliteRetry(() =>
-          db.getFirstAsync<{ last_seq: number }>(
-            'SELECT last_seq FROM daily_counters WHERE business_date = ?',
-            [businessDate]
-          )
-        );
-        dailySeq = (counterRow?.last_seq ?? 0) + 1;
-        await withSqliteRetry(() =>
-          db.runAsync(
-            `INSERT INTO daily_counters (business_date, last_seq) VALUES (?, ?)
-             ON CONFLICT(business_date) DO UPDATE SET last_seq = ?`,
-            [businessDate, dailySeq, dailySeq]
-          )
-        );
+            for (const item of cart) {
+              await db.runAsync(
+                `INSERT INTO transaction_items (transaction_id, menu_id, menu_name, price, qty, subtotal, is_additional)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                [finalTxId, item.menu_id, item.name, item.price, item.qty, item.subtotal, item.is_additional]
+              );
+            }
+          } else {
+            // Transaksi Baru Langsung Bayar (Direct Checkout)
+            const counterRow = await db.getFirstAsync<{ last_seq: number }>(
+              'SELECT last_seq FROM daily_counters WHERE business_date = ?',
+              [businessDate]
+            );
+            dailySeq = (counterRow?.last_seq ?? 0) + 1;
+            await db.runAsync(
+              `INSERT INTO daily_counters (business_date, last_seq) VALUES (?, ?)
+               ON CONFLICT(business_date) DO UPDATE SET last_seq = ?`,
+              [businessDate, dailySeq, dailySeq]
+            );
 
-        const [y, m, d] = businessDate.split('-');
-        finalInvoice = `INV-${d}${m}${y.slice(2)}-${String(dailySeq).padStart(3, '0')}`;
+            const [y, m, d] = businessDate.split('-');
+            finalInvoice = `INV-${d}${m}${y.slice(2)}-${String(dailySeq).padStart(3, '0')}`;
 
-        const res = await withSqliteRetry(() =>
-          db.runAsync(
-            `INSERT INTO transactions (
-              invoice_number, business_date, table_number, customer_id, customer_name,
-              subtotal, tax_amount, discount_amount, total, payment_method, payment_amount,
-              change_amount, status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'completed')`,
-            [
-              finalInvoice,
-              businessDate,
-              tableNumber,
-              customerId,
-              customerName,
-              subtotal,
-              taxAmount,
-              discountAmount,
-              total,
-              paymentMethod,
-              paymentAmount,
-              change,
-            ]
-          )
-        );
+            const res = await db.runAsync(
+              `INSERT INTO transactions (
+                invoice_number, business_date, table_number, customer_id, customer_name,
+                subtotal, tax_amount, discount_amount, total, payment_method, payment_amount,
+                change_amount, status
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'completed')`,
+              [
+                finalInvoice,
+                businessDate,
+                tableNumber,
+                customerId,
+                customerName,
+                subtotal,
+                taxAmount,
+                discountAmount,
+                total,
+                paymentMethod,
+                paymentAmount,
+                change,
+              ]
+            );
 
-        finalTxId = res.lastInsertRowId;
+            finalTxId = res.lastInsertRowId;
 
-        for (const item of cart) {
-          await withSqliteRetry(() =>
-            db.runAsync(
-              `INSERT INTO transaction_items (transaction_id, menu_id, menu_name, price, qty, subtotal, is_additional)
-               VALUES (?, ?, ?, ?, ?, ?, 0)`,
-              [finalTxId, item.menu_id, item.name, item.price, item.qty, item.subtotal]
-            )
-          );
-        }
-      }
+            for (const item of cart) {
+              await db.runAsync(
+                `INSERT INTO transaction_items (transaction_id, menu_id, menu_name, price, qty, subtotal, is_additional)
+                 VALUES (?, ?, ?, ?, ?, ?, 0)`,
+                [finalTxId, item.menu_id, item.name, item.price, item.qty, item.subtotal]
+              );
+            }
+          }
 
-      // Potong stok jika menu melacak stok (track_stock = 1)
-      for (const item of cart) {
-        await withSqliteRetry(() =>
-          db.runAsync(
-            `UPDATE menus SET stock = MAX(0, stock - ?) WHERE id = ? AND track_stock = 1`,
-            [item.qty, item.menu_id]
-          )
-        );
-      }
+          // Potong stok jika menu melacak stok (track_stock = 1)
+          for (const item of cart) {
+            await db.runAsync(
+              `UPDATE menus SET stock = MAX(0, stock - ?) WHERE id = ? AND track_stock = 1`,
+              [item.qty, item.menu_id]
+            );
+          }
 
-      // Update akumulasi belanja customer (jika bukan Customer UMUM atau jika customer terdaftar)
-      if (customerId && customerId > 1) {
-        await withSqliteRetry(() =>
-          db.runAsync(
-            `UPDATE customers 
-             SET total_spent = total_spent + ?, total_visits = total_visits + 1
-             WHERE id = ?`,
-            [total, customerId]
-          )
-        );
-      }
+          // Update akumulasi belanja customer (jika bukan Customer UMUM atau jika customer terdaftar)
+          if (customerId && customerId > 1) {
+            await db.runAsync(
+              `UPDATE customers 
+               SET total_spent = total_spent + ?, total_visits = total_visits + 1
+               WHERE id = ?`,
+              [total, customerId]
+            );
+          }
 
-      // Jika Tunai: Otomatis masuk ke Buku Kas Masuk (Penjualan Bersih)
-      if (paymentMethod === 'tunai') {
-        await withSqliteRetry(() =>
-          db.runAsync(
-            `INSERT INTO cash_ledger (business_date, type, affects_pnl, category, amount, notes)
-             VALUES (?, 'in', 1, 'penjualan_tunai', ?, ?)`,
-            [businessDate, total, `Penjualan Nota ${finalInvoice} (${tableNumber})`]
-          )
-        );
-      }
+          // Jika Tunai: Otomatis masuk ke Buku Kas Masuk (Penjualan Bersih) dengan tipe 'income'
+          if (paymentMethod === 'tunai') {
+            await db.runAsync(
+              `INSERT INTO cash_ledger (business_date, type, affects_pnl, category, amount, notes)
+               VALUES (?, 'income', 1, 'penjualan_tunai', ?, ?)`,
+              [businessDate, total, `Penjualan Nota ${finalInvoice} (${tableNumber})`]
+            );
+          }
+        })
+      );
 
       // Bersihkan keranjang dan muat ulang pending orders
       get().clearCart();
@@ -626,6 +842,7 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
         paymentAmount,
         change,
         dailySeq,
+        paymentMethod,
       };
     } catch (err) {
       set({ isCheckingOut: false });

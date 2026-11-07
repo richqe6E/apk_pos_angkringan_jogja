@@ -61,10 +61,28 @@ export async function deleteMonthlyAttendancePhotos(monthPrefix: string): Promis
 
     const files = await FileSystem.readDirectoryAsync(targetDir);
     let deletedCount = 0;
+    const cleanPrefix = monthPrefix.replace('-', '');
 
-    // Filter file berdasarkan nama prefix bulan jika ada
+    // Filter file berdasarkan nama prefix bulan atau timestamp epoch pada nama file
     for (const f of files) {
-      if (f.includes(monthPrefix.replace('-', '')) || f.includes(monthPrefix)) {
+      let shouldDelete = f.includes(monthPrefix) || f.includes(cleanPrefix);
+      if (!shouldDelete) {
+        const parts = f.split('_');
+        if (parts.length >= 2) {
+          const epoch = parseInt(parts[1], 10);
+          if (!isNaN(epoch) && epoch > 0) {
+            const date = new Date(epoch);
+            const yyyy = date.getFullYear();
+            const mm = String(date.getMonth() + 1).padStart(2, '0');
+            const fileMonth = `${yyyy}-${mm}`;
+            if (fileMonth === monthPrefix || `${yyyy}${mm}` === cleanPrefix) {
+              shouldDelete = true;
+            }
+          }
+        }
+      }
+
+      if (shouldDelete) {
         await FileSystem.deleteAsync(`${targetDir}${f}`, { idempotent: true });
         deletedCount++;
       }

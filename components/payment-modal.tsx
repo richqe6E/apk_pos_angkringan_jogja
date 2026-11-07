@@ -26,6 +26,8 @@ interface PaymentModalProps {
     total: number;
     paymentAmount: number;
     change: number;
+    dailySeq?: number;
+    paymentMethod: 'tunai' | 'qris' | 'transfer';
   }) => void;
 }
 

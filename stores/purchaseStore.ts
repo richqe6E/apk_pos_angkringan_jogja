@@ -154,46 +154,49 @@ export const usePurchaseStore = create<PurchaseState>((set, get) => ({
     const paymentStatus = isCash ? 'paid' : 'unpaid';
     const finalDueDate = input.has_due_date && input.due_date ? input.due_date : null;
 
-    // 1. Simpan data pembelian ke tabel purchases
-    const res = await withSqliteRetry(() =>
-      db.runAsync(
-        `INSERT INTO purchases (
-          supplier_id, supplier_name, business_date, total_amount,
-          payment_type, due_date, payment_status, receipt_photo_path, notes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          input.supplier_id,
-          input.supplier_name.trim(),
-          businessDate,
-          input.total_amount,
-          input.payment_type,
-          finalDueDate,
-          paymentStatus,
-          savedPhotoPath,
-          input.notes?.trim() || '',
-        ]
-      )
-    );
+    let newPurchaseId = 0;
 
-    // 2. Jika pembelian tunai (CASH), otomatis potong kas / catat ke cash_ledger sebagai pengeluaran operasional (PnL)
-    if (isCash) {
-      await withSqliteRetry(() =>
-        db.runAsync(
-          `INSERT INTO cash_ledger (
-            business_date, type, affects_pnl, category, amount, notes
-          ) VALUES (?, 'expense', 1, 'Pembelian Bahan/Kulakan', ?, ?)`,
+    await withSqliteRetry(() =>
+      db.withTransactionAsync(async () => {
+        // 1. Simpan data pembelian ke tabel purchases
+        const res = await db.runAsync(
+          `INSERT INTO purchases (
+            supplier_id, supplier_name, business_date, total_amount,
+            payment_type, due_date, payment_status, receipt_photo_path, notes
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
+            input.supplier_id,
+            input.supplier_name.trim(),
             businessDate,
             input.total_amount,
-            `Kulakan tunai dari ${input.supplier_name} (ID Pembelian: #${res.lastInsertRowId})`,
+            input.payment_type,
+            finalDueDate,
+            paymentStatus,
+            savedPhotoPath,
+            input.notes?.trim() || '',
           ]
-        )
-      );
-    }
+        );
+        newPurchaseId = res.lastInsertRowId;
+
+        // 2. Jika pembelian tunai (CASH), otomatis potong kas / catat ke cash_ledger sebagai pengeluaran operasional (PnL)
+        if (isCash) {
+          await db.runAsync(
+            `INSERT INTO cash_ledger (
+              business_date, type, affects_pnl, category, amount, notes
+            ) VALUES (?, 'expense', 1, 'Pembelian Bahan/Kulakan', ?, ?)`,
+            [
+              businessDate,
+              input.total_amount,
+              `Kulakan tunai dari ${input.supplier_name} (ID Pembelian: #${newPurchaseId})`,
+            ]
+          );
+        }
+      })
+    );
 
     await get().loadPurchases(db);
     await get().loadSuppliers(db);
-    return res.lastInsertRowId;
+    return newPurchaseId;
   },
 
   settleTempoDebt: async (db, purchaseId) => {
@@ -205,26 +208,26 @@ export const usePurchaseStore = create<PurchaseState>((set, get) => ({
       throw new Error('Hutang pembelian ini sudah lunas.');
     }
 
-    // 1. Tandai lunas di tabel purchases
     await withSqliteRetry(() =>
-      db.runAsync(
-        "UPDATE purchases SET payment_status = 'paid', paid_at = datetime('now','localtime') WHERE id = ?",
-        [purchaseId]
-      )
-    );
+      db.withTransactionAsync(async () => {
+        // 1. Tandai lunas di tabel purchases
+        await db.runAsync(
+          "UPDATE purchases SET payment_status = 'paid', paid_at = datetime('now','localtime') WHERE id = ?",
+          [purchaseId]
+        );
 
-    // 2. Otomatis potong kas operasional di cash_ledger
-    await withSqliteRetry(() =>
-      db.runAsync(
-        `INSERT INTO cash_ledger (
-          business_date, type, affects_pnl, category, amount, notes
-        ) VALUES (?, 'expense', 1, 'Pelunasan Hutang Supplier', ?, ?)`,
-        [
-          businessDate,
-          purchase.total_amount,
-          `Pelunasan hutang nota #${purchase.id} kepada ${purchase.supplier_name}`,
-        ]
-      )
+        // 2. Otomatis potong kas operasional di cash_ledger
+        await db.runAsync(
+          `INSERT INTO cash_ledger (
+            business_date, type, affects_pnl, category, amount, notes
+          ) VALUES (?, 'expense', 1, 'Pelunasan Hutang Supplier', ?, ?)`,
+          [
+            businessDate,
+            purchase.total_amount,
+            `Pelunasan hutang nota #${purchase.id} kepada ${purchase.supplier_name}`,
+          ]
+        );
+      })
     );
 
     await get().loadPurchases(db);

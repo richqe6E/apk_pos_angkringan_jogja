@@ -1,4 +1,4 @@
-import React, { Suspense } from 'react';
+import React, { Suspense, useEffect } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
@@ -9,6 +9,8 @@ import 'react-native-reanimated';
 
 import { migrateDbIfNeeded } from '../services/database';
 import { Colors } from '../constants/theme';
+import { usePrinterStore } from '../stores/printerStore';
+import { useTransactionStore } from '../stores/transactionStore';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -25,11 +27,32 @@ function DatabaseLoadingFallback() {
   );
 }
 
+async function handleDatabaseInit(db: SQLite.SQLiteDatabase): Promise<void> {
+  await migrateDbIfNeeded(db);
+  try {
+    await db.runAsync("UPDATE cash_ledger SET type = 'income' WHERE type = 'in'");
+  } catch {}
+  await usePrinterStore.getState().loadSavedPrinters(db);
+  await useTransactionStore.getState().loadStoreSettings(db);
+}
+
+function AppInitializer() {
+  const db = SQLite.useSQLiteContext();
+
+  useEffect(() => {
+    usePrinterStore.getState().loadSavedPrinters(db).catch((err) => console.warn('Init printers err:', err));
+    useTransactionStore.getState().loadStoreSettings(db).catch((err) => console.warn('Init store settings err:', err));
+  }, [db]);
+
+  return null;
+}
+
 export default function RootLayout() {
   return (
     <ThemeProvider value={DefaultTheme}>
       <Suspense fallback={<DatabaseLoadingFallback />}>
-        <SQLite.SQLiteProvider databaseName="pos_angkringan.db" onInit={migrateDbIfNeeded} useSuspense>
+        <SQLite.SQLiteProvider databaseName="pos_angkringan.db" onInit={handleDatabaseInit} useSuspense>
+          <AppInitializer />
           <SafeAreaView style={{ flex: 1, backgroundColor: Colors.background }} edges={['top', 'bottom']}>
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

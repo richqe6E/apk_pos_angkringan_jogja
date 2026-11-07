@@ -15,10 +15,10 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { Colors } from '../constants/theme';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
-import { Badge } from './ui/badge';
-import { formatRupiahDisplay, parseRupiahInput } from '../utils/formatRupiah';
+import { formatRupiahDisplay, formatRupiahInput, parseRupiahInput } from '../utils/formatRupiah';
 import { MenuItem, useMenuStore } from '../stores/menuStore';
 import { saveImageLocally } from '../utils/imageStorage';
+import { CategoryFormModal } from './category-form-modal';
 
 interface MenuFormModalProps {
   visible: boolean;
@@ -28,7 +28,7 @@ interface MenuFormModalProps {
 
 export function MenuFormModal({ visible, menuItem, onClose }: MenuFormModalProps) {
   const db = useSQLiteContext();
-  const { categories, addMenu, updateMenu } = useMenuStore();
+  const { categories, addMenu, updateMenu, deleteMenu } = useMenuStore();
 
   const [name, setName] = useState('');
   const [priceText, setPriceText] = useState('');
@@ -38,11 +38,12 @@ export function MenuFormModal({ visible, menuItem, onClose }: MenuFormModalProps
   const [barcode, setBarcode] = useState('');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [categoryModalVisible, setCategoryModalVisible] = useState(false);
 
   useEffect(() => {
     if (menuItem) {
       setName(menuItem.name);
-      setPriceText(menuItem.price.toString());
+      setPriceText(formatRupiahInput(menuItem.price));
       setSelectedCatId(menuItem.category_id);
       setTrackStock(menuItem.track_stock === 1);
       setStockText(menuItem.stock.toString());
@@ -101,6 +102,36 @@ export function MenuFormModal({ visible, menuItem, onClose }: MenuFormModalProps
     ]);
   };
 
+  const adjustStock = (delta: number) => {
+    const current = parseInt(stockText, 10) || 0;
+    const next = Math.max(0, current + delta);
+    setStockText(String(next));
+  };
+
+  const handleDelete = () => {
+    if (!menuItem) return;
+    Alert.alert(
+      'Hapus Menu',
+      `Yakin ingin menghapus menu "${menuItem.name}" dari katalog?`,
+      [
+        { text: 'Batal', style: 'cancel' },
+        {
+          text: 'Hapus',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteMenu(db, menuItem.id);
+              Alert.alert('Sukses', `Menu "${menuItem.name}" berhasil dihapus.`);
+              onClose();
+            } catch (err: any) {
+              Alert.alert('Gagal Hapus', err?.message || 'Terjadi kesalahan sistem.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleSubmit = async () => {
     if (!name.trim()) {
       Alert.alert('Perhatian', 'Nama menu wajib diisi.');
@@ -117,8 +148,8 @@ export function MenuFormModal({ visible, menuItem, onClose }: MenuFormModalProps
 
     setIsSubmitting(true);
     try {
-      let finalPhotoPath = photoUri || '';
-      if (photoUri && !photoUri.startsWith('file://') && !photoUri.startsWith('/')) {
+      let finalPhotoPath = '';
+      if (photoUri) {
         finalPhotoPath = await saveImageLocally(photoUri, 'menus');
       }
 
@@ -218,7 +249,7 @@ export function MenuFormModal({ visible, menuItem, onClose }: MenuFormModalProps
                 placeholderTextColor={Colors.textMuted}
                 keyboardType="numeric"
                 value={priceText}
-                onChangeText={setPriceText}
+                onChangeText={(txt) => setPriceText(formatRupiahInput(txt))}
               />
               {parseRupiahInput(priceText) > 0 && (
                 <Text style={styles.pricePreview}>
@@ -229,7 +260,12 @@ export function MenuFormModal({ visible, menuItem, onClose }: MenuFormModalProps
 
             {/* Kategori */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Kategori Menu</Text>
+              <View style={styles.catLabelRow}>
+                <Text style={styles.label}>Kategori Menu</Text>
+                <TouchableOpacity onPress={() => setCategoryModalVisible(true)}>
+                  <Text style={styles.addCatLink}>+ Kategori Baru</Text>
+                </TouchableOpacity>
+              </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catScroll}>
                 {categories.map((c) => {
                   const isSelected = selectedCatId === c.id;
@@ -245,6 +281,12 @@ export function MenuFormModal({ visible, menuItem, onClose }: MenuFormModalProps
                     </TouchableOpacity>
                   );
                 })}
+                <TouchableOpacity
+                  style={styles.addCatPill}
+                  onPress={() => setCategoryModalVisible(true)}
+                >
+                  <Text style={styles.addCatPillText}>+ Kategori</Text>
+                </TouchableOpacity>
               </ScrollView>
             </View>
 
@@ -274,14 +316,40 @@ export function MenuFormModal({ visible, menuItem, onClose }: MenuFormModalProps
               {trackStock && (
                 <View style={{ marginTop: 10 }}>
                   <Text style={styles.subLabel}>Sisa Stok Tersedia (Porsi / Tusuk):</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    placeholder="Contoh: 25"
-                    placeholderTextColor={Colors.textMuted}
-                    keyboardType="numeric"
-                    value={stockText}
-                    onChangeText={setStockText}
-                  />
+                  <View style={styles.stepperContainer}>
+                    <TouchableOpacity
+                      style={styles.stepperBtn}
+                      onPress={() => adjustStock(-5)}
+                    >
+                      <Text style={styles.stepperBtnText}>-5</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.stepperBtn}
+                      onPress={() => adjustStock(-1)}
+                    >
+                      <Text style={styles.stepperBtnText}>-1</Text>
+                    </TouchableOpacity>
+                    <TextInput
+                      style={styles.stockInput}
+                      placeholder="0"
+                      placeholderTextColor={Colors.textMuted}
+                      keyboardType="numeric"
+                      value={stockText}
+                      onChangeText={(txt) => setStockText(txt.replace(/\D/g, ''))}
+                    />
+                    <TouchableOpacity
+                      style={styles.stepperBtn}
+                      onPress={() => adjustStock(1)}
+                    >
+                      <Text style={styles.stepperBtnText}>+1</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.stepperBtn}
+                      onPress={() => adjustStock(5)}
+                    >
+                      <Text style={styles.stepperBtnText}>+5</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               )}
             </Card>
@@ -301,17 +369,32 @@ export function MenuFormModal({ visible, menuItem, onClose }: MenuFormModalProps
 
           {/* Footer */}
           <View style={styles.footer}>
+            {menuItem && (
+              <Button
+                title="Hapus Menu"
+                variant="danger"
+                onPress={handleDelete}
+                style={{ flex: 1 }}
+              />
+            )}
             <Button title="Batal" variant="outline" onPress={onClose} style={{ flex: 1 }} />
             <Button
               title={menuItem ? 'Simpan Perubahan' : 'Tambahkan Menu'}
               variant="primary"
               loading={isSubmitting}
               onPress={handleSubmit}
-              style={{ flex: 1 }}
+              style={{ flex: menuItem ? 1.5 : 1 }}
             />
           </View>
         </View>
       </View>
+
+      {/* Android-native Category Form Dialog */}
+      <CategoryFormModal
+        visible={categoryModalVisible}
+        onClose={() => setCategoryModalVisible(false)}
+        onSuccess={(newId) => setSelectedCatId(newId)}
+      />
     </Modal>
   );
 }
@@ -385,6 +468,16 @@ const styles = StyleSheet.create({
   inputGroup: {
     gap: 4,
   },
+  catLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  addCatLink: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.primary,
+  },
   label: {
     fontSize: 13,
     fontWeight: '700',
@@ -394,7 +487,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: Colors.textMuted,
-    marginBottom: 4,
+    marginBottom: 6,
   },
   textInput: {
     height: 44,
@@ -437,6 +530,21 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     fontWeight: '700',
   },
+  addCatPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: Colors.primary,
+    backgroundColor: '#ffffff',
+    marginRight: 8,
+  },
+  addCatPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.primary,
+  },
   stockCard: {
     padding: 12,
     backgroundColor: '#f9fafb',
@@ -468,12 +576,44 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     fontWeight: '700',
   },
+  stepperContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  stepperBtn: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    minWidth: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepperBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+  },
+  stockInput: {
+    flex: 1,
+    height: 40,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 6,
+    textAlign: 'center',
+    fontSize: 15,
+    fontWeight: '700',
+    color: Colors.text,
+  },
   footer: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
     padding: 16,
     borderTopWidth: 1,
     borderTopColor: Colors.border,
   },
 });
-

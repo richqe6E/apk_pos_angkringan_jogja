@@ -18,16 +18,27 @@ import { formatRupiahDisplay } from '../../utils/formatRupiah';
 import {
   useFinancialStore,
   CashEntry,
+  getPreviousMonth,
+  getNextMonth,
+  getPreviousDay,
+  getNextDay,
+  PeriodFilterMode,
 } from '../../stores/financialStore';
 import { CashEntryModal } from '../../components/cash-entry-modal';
 import { MonthlyCogsModal } from '../../components/monthly-cogs-modal';
 import { AdminPinModal } from '../../components/admin-pin-modal';
-import { exportTableToPdf, exportTableToCsv } from '../../services/export';
+import { exportTableToPdf } from '../../services/export';
+import { exportFinancialReportCsv } from '../../services/backup';
+import { getBusinessDate } from '../../utils/sessionHelper';
 
 type FinancialTab = 'pnl' | 'ledger';
+type PeriodFilterType = 'today' | '7days' | 'month' | 'custom';
+type CustomSelectorMode = 'month' | 'date';
 
 export default function FinancialScreen() {
   const db = useSQLiteContext();
+  const todayBizDate = getBusinessDate();
+
   const {
     cashEntries,
     summary,
@@ -39,27 +50,45 @@ export default function FinancialScreen() {
   } = useFinancialStore();
 
   const [activeTab, setActiveTab] = useState<FinancialTab>('pnl');
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilterType>('month');
+  const [customMode, setCustomMode] = useState<CustomSelectorMode>('month');
+  const [customMonth, setCustomMonth] = useState<string>(selectedMonth || todayBizDate.substring(0, 7));
+  const [customDate, setCustomDate] = useState<string>(todayBizDate);
+
   const [cashModalVisible, setCashModalVisible] = useState(false);
   const [cogsModalVisible, setCogsModalVisible] = useState(false);
   const [adminPinVisible, setAdminPinVisible] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
-    loadFinancialData(db, selectedMonth);
-  }, [db, selectedMonth]);
+    refreshData();
+  }, [db, periodFilter, customMode, customMonth, customDate]);
+
+  const refreshData = () => {
+    if (periodFilter === 'today') {
+      loadFinancialData(db, { mode: 'today' });
+    } else if (periodFilter === '7days') {
+      loadFinancialData(db, { mode: '7days' });
+    } else if (periodFilter === 'month') {
+      loadFinancialData(db, { mode: 'month' });
+    } else if (customMode === 'month') {
+      setSelectedMonth(customMonth);
+      loadFinancialData(db, { mode: 'custom_month', targetMonth: customMonth });
+    } else {
+      loadFinancialData(db, { mode: 'custom_date', customDate: customDate });
+    }
+  };
 
   const handlePrevMonth = () => {
-    const [y, m] = selectedMonth.split('-').map(Number);
-    const prevDate = new Date(y, m - 2, 1);
-    const prevMonthStr = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
-    setSelectedMonth(prevMonthStr);
+    const prev = getPreviousMonth(customMonth);
+    setCustomMonth(prev);
+    setSelectedMonth(prev);
   };
 
   const handleNextMonth = () => {
-    const [y, m] = selectedMonth.split('-').map(Number);
-    const nextDate = new Date(y, m, 1);
-    const nextMonthStr = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}`;
-    setSelectedMonth(nextMonthStr);
+    const next = getNextMonth(customMonth);
+    setCustomMonth(next);
+    setSelectedMonth(next);
   };
 
   const handleOpenCogs = () => {
@@ -97,8 +126,11 @@ export default function FinancialScreen() {
     try {
       const headers = ['Komponen Laba Rugi', 'Nominal (Rp)', 'Keterangan'];
       const rows = [
-        ['(+) Penjualan Bruto Toko', formatRupiahDisplay(summary.totalGrossSales), `${summary.totalTxCount} transaksi completed`],
-        ['(+) Pendapatan Operasional Lain', formatRupiahDisplay(summary.totalOperationalIncome), 'Pendapatan non-transaksi kasir'],
+        ['(+) Penjualan Bruto Toko (Omset)', formatRupiahDisplay(summary.totalGrossSales), `${summary.totalTxCount} transaksi completed`],
+        ['    - Penjualan Tunai (Cash)', formatRupiahDisplay(summary.salesTunai || 0), 'Metode bayar Tunai'],
+        ['    - Penjualan QRIS', formatRupiahDisplay(summary.salesQris || 0), 'Metode bayar QRIS'],
+        ['    - Penjualan Transfer Bank', formatRupiahDisplay(summary.salesTransfer || 0), 'Metode bayar Transfer'],
+        ['(+) Pendapatan Operasional Lain', formatRupiahDisplay(summary.totalOperationalIncome), 'Pendapatan non-transaksi kasir (PnL)'],
         ['(-) HPP Bahan Baku (Owner)', formatRupiahDisplay(summary.monthlyCogs), summary.monthlyCogsNotes || 'Input HPP global akhir bulan'],
         ['(=) Laba Kotor (Gross Profit)', formatRupiahDisplay(summary.grossProfit), 'Omset - HPP Bahan'],
         ['(-) Beban Kas Operasional', formatRupiahDisplay(summary.totalOperationalExpenses), 'Arang, listrik, air, plastik, dll'],
@@ -106,12 +138,12 @@ export default function FinancialScreen() {
       ];
 
       const summaries = [
-        `Periode Laporan: ${selectedMonth}`,
-        `Total Setor Bank Non-PnL: ${formatRupiahDisplay(summary.totalNonPnlExpenses)}`,
+        `Periode Laporan: ${summary.periodMonth}`,
+        `Total Setor Bank / Prive Non-PnL: ${formatRupiahDisplay(summary.totalNonPnlExpenses)}`,
         `Total Modal Masuk Non-PnL: ${formatRupiahDisplay(summary.totalNonPnlIncome)}`,
       ];
 
-      await exportTableToPdf('Laporan Keuangan & Laba Rugi', `Periode ${selectedMonth}`, headers, rows, summaries);
+      await exportTableToPdf('Laporan Keuangan & Laba Rugi', `Periode ${summary.periodMonth}`, headers, rows, summaries);
     } catch (err: any) {
       Alert.alert('Export Gagal', err.message);
     } finally {
@@ -122,18 +154,7 @@ export default function FinancialScreen() {
   const handleExportCsv = async () => {
     setIsExporting(true);
     try {
-      const headers = ['ID', 'Tanggal', 'Tipe', 'PnL', 'Kategori', 'Nominal', 'Catatan'];
-      const rows = cashEntries.map((e) => [
-        e.id,
-        e.business_date,
-        e.type,
-        e.affects_pnl === 1 ? 'Operasional (PnL)' : 'Non-Operasional',
-        e.category,
-        e.amount,
-        e.notes,
-      ]);
-
-      await exportTableToCsv(`buku_kas_${selectedMonth}`, headers, rows);
+      await exportFinancialReportCsv(summary, cashEntries, summary.periodMonth);
     } catch (err: any) {
       Alert.alert('Export Gagal', err.message);
     } finally {
@@ -145,11 +166,26 @@ export default function FinancialScreen() {
     <ScrollView style={styles.scrollArea} contentContainerStyle={styles.scrollContent}>
       {/* Laporan Laba Rugi Formal */}
       <Card style={styles.statementCard}>
-        <Text style={styles.cardHeaderTitle}>Laporan Laba Rugi Operasional ({selectedMonth})</Text>
+        <Text style={styles.cardHeaderTitle}>
+          Laporan Laba Rugi Operasional ({summary.periodMonth})
+        </Text>
 
         <View style={styles.statementRow}>
           <Text style={styles.statementLabel}>(+) Penjualan Bruto Toko (Omset)</Text>
           <Text style={styles.statementValueBold}>{formatRupiahDisplay(summary.totalGrossSales)}</Text>
+        </View>
+
+        {/* Breakdown Pembayaran di Laporan Laba Rugi */}
+        <View style={styles.paymentBreakdownDetails}>
+          <Text style={styles.paymentBreakdownItem}>
+            • Tunai (Cash): {formatRupiahDisplay(summary.salesTunai || 0)}
+          </Text>
+          <Text style={styles.paymentBreakdownItem}>
+            • QRIS: {formatRupiahDisplay(summary.salesQris || 0)}
+          </Text>
+          <Text style={styles.paymentBreakdownItem}>
+            • Transfer Bank: {formatRupiahDisplay(summary.salesTransfer || 0)}
+          </Text>
         </View>
 
         {summary.totalOperationalIncome > 0 && (
@@ -246,7 +282,7 @@ export default function FinancialScreen() {
         contentContainerStyle={{ padding: 16, gap: 10 }}
         ListEmptyComponent={
           <View style={styles.emptyBox}>
-            <Text style={styles.emptyText}>Belum ada catatan mutasi kas pada bulan ini.</Text>
+            <Text style={styles.emptyText}>Belum ada catatan mutasi kas pada periode ini.</Text>
           </View>
         }
         renderItem={({ item }) => {
@@ -308,19 +344,8 @@ export default function FinancialScreen() {
         <View>
           <Text style={styles.headerTitle}>Laporan Keuangan & Buku Kas</Text>
           <Text style={styles.headerSubtitle}>
-            Segregasi Beban PnL, Mutasi Kas & HPP Global Bulanan
+            Segregasi Beban PnL, Mutasi Kas & HPP ({summary.periodMonth})
           </Text>
-        </View>
-
-        {/* Month Selector */}
-        <View style={styles.monthSelector}>
-          <TouchableOpacity onPress={handlePrevMonth} style={styles.monthNavBtn}>
-            <Text style={styles.monthNavBtnText}>◀</Text>
-          </TouchableOpacity>
-          <Text style={styles.currentMonthText}>{selectedMonth}</Text>
-          <TouchableOpacity onPress={handleNextMonth} style={styles.monthNavBtn}>
-            <Text style={styles.monthNavBtnText}>▶</Text>
-          </TouchableOpacity>
         </View>
 
         {/* Action Buttons */}
@@ -342,7 +367,7 @@ export default function FinancialScreen() {
             style={styles.headerBtn}
           />
           <Button
-            title="HPP Global (Owner)"
+            title="HPP Global"
             variant="outline"
             size="sm"
             onPress={handleOpenCogs}
@@ -357,6 +382,107 @@ export default function FinancialScreen() {
         </View>
       </View>
 
+      {/* Period Filter Bar (Requirement 1) */}
+      <View style={styles.periodFilterBar}>
+        <Text style={styles.periodLabelTitle}>Periode:</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.periodButtonsScroll}>
+          <TouchableOpacity
+            style={[styles.periodBtn, periodFilter === 'today' && styles.periodBtnActive]}
+            onPress={() => setPeriodFilter('today')}
+          >
+            <Text style={[styles.periodBtnText, periodFilter === 'today' && styles.periodBtnTextActive]}>
+              Hari Ini
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.periodBtn, periodFilter === '7days' && styles.periodBtnActive]}
+            onPress={() => setPeriodFilter('7days')}
+          >
+            <Text style={[styles.periodBtnText, periodFilter === '7days' && styles.periodBtnTextActive]}>
+              7 Hari Terakhir
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.periodBtn, periodFilter === 'month' && styles.periodBtnActive]}
+            onPress={() => setPeriodFilter('month')}
+          >
+            <Text style={[styles.periodBtnText, periodFilter === 'month' && styles.periodBtnTextActive]}>
+              1 Bulan Ini
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.periodBtn, periodFilter === 'custom' && styles.periodBtnActive]}
+            onPress={() => setPeriodFilter('custom')}
+          >
+            <Text style={[styles.periodBtnText, periodFilter === 'custom' && styles.periodBtnTextActive]}>
+              Pilih Bulan / Tanggal
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </View>
+
+      {/* Custom Selector Sub-bar */}
+      {periodFilter === 'custom' && (
+        <View style={styles.customSelectorBar}>
+          <View style={styles.customModeToggle}>
+            <TouchableOpacity
+              style={[styles.modeToggleBtn, customMode === 'month' && styles.modeToggleBtnActive]}
+              onPress={() => setCustomMode('month')}
+            >
+              <Text style={[styles.modeToggleText, customMode === 'month' && styles.modeToggleTextActive]}>
+                Per Bulan
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.modeToggleBtn, customMode === 'date' && styles.modeToggleBtnActive]}
+              onPress={() => setCustomMode('date')}
+            >
+              <Text style={[styles.modeToggleText, customMode === 'date' && styles.modeToggleTextActive]}>
+                Per Tanggal
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {customMode === 'month' ? (
+            <View style={styles.navRow}>
+              <TouchableOpacity style={styles.navBtn} onPress={handlePrevMonth}>
+                <Text style={styles.navBtnText}>◀</Text>
+              </TouchableOpacity>
+              <Text style={styles.navValText}>{customMonth}</Text>
+              <TouchableOpacity style={styles.navBtn} onPress={handleNextMonth}>
+                <Text style={styles.navBtnText}>▶</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.navRow}>
+              <TouchableOpacity
+                style={styles.navBtn}
+                onPress={() => setCustomDate(getPreviousDay(customDate))}
+              >
+                <Text style={styles.navBtnText}>◀</Text>
+              </TouchableOpacity>
+              <Text style={styles.navValText}>{customDate}</Text>
+              <TouchableOpacity
+                style={styles.navBtn}
+                onPress={() => setCustomDate(getNextDay(customDate))}
+              >
+                <Text style={styles.navBtnText}>▶</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.todayQuickBtn}
+                onPress={() => setCustomDate(todayBizDate)}
+              >
+                <Text style={styles.todayQuickText}>Hari Ini</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      )}
+
       {/* 4 Metric Highlight Cards */}
       <View style={styles.metricsRow}>
         <Card style={styles.metricCard}>
@@ -368,7 +494,7 @@ export default function FinancialScreen() {
         </Card>
 
         <Card style={styles.metricCard}>
-          <Text style={styles.metricLabel}>HPP Bahan Baku (Opsi A)</Text>
+          <Text style={styles.metricLabel}>HPP Bahan Baku</Text>
           <Text style={[styles.metricValue, { color: '#d97706' }]}>
             {formatRupiahDisplay(summary.monthlyCogs)}
           </Text>
@@ -393,8 +519,38 @@ export default function FinancialScreen() {
           >
             {formatRupiahDisplay(summary.netOperatingProfit)}
           </Text>
-          <Text style={styles.metricSub}>Laba bersih toko</Text>
+          <Text style={styles.metricSub}>Laba bersih operasional</Text>
         </Card>
+      </View>
+
+      {/* Payment Method Breakdown Cards (Requirement 3) */}
+      <View style={styles.paymentBreakdownBar}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.paymentBreakdownScroll}>
+          <View style={styles.payChip}>
+            <Text style={styles.payChipLabel}>💵 Tunai (Cash):</Text>
+            <Text style={[styles.payChipVal, { color: '#059669' }]}>
+              {formatRupiahDisplay(summary.salesTunai || 0)}
+            </Text>
+          </View>
+          <View style={styles.payChip}>
+            <Text style={styles.payChipLabel}>📱 QRIS:</Text>
+            <Text style={[styles.payChipVal, { color: '#2563eb' }]}>
+              {formatRupiahDisplay(summary.salesQris || 0)}
+            </Text>
+          </View>
+          <View style={styles.payChip}>
+            <Text style={styles.payChipLabel}>🏦 Transfer:</Text>
+            <Text style={[styles.payChipVal, { color: '#7c3aed' }]}>
+              {formatRupiahDisplay(summary.salesTransfer || 0)}
+            </Text>
+          </View>
+          <View style={styles.payChip}>
+            <Text style={styles.payChipLabel}>📊 Total Omset:</Text>
+            <Text style={[styles.payChipVal, { color: Colors.primary }]}>
+              {formatRupiahDisplay(summary.totalGrossSales)}
+            </Text>
+          </View>
+        </ScrollView>
       </View>
 
       {/* Tab Navigation */}
@@ -480,29 +636,6 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.85)',
     marginTop: 2,
   },
-  monthSelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  monthNavBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  monthNavBtnText: {
-    fontSize: 14,
-    color: '#ffffff',
-    fontWeight: '700',
-  },
-  currentMonthText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#ffffff',
-    paddingHorizontal: 10,
-  },
   headerActions: {
     flexDirection: 'row',
     gap: 8,
@@ -510,14 +643,126 @@ const styles = StyleSheet.create({
   headerBtn: {
     borderColor: '#ffffff',
   },
+  periodFilterBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderLight,
+  },
+  periodLabelTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.textMuted,
+    marginRight: 8,
+  },
+  periodButtonsScroll: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  periodBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.background,
+  },
+  periodBtnActive: {
+    backgroundColor: Colors.primarySoft,
+    borderColor: Colors.primary,
+  },
+  periodBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.textMuted,
+  },
+  periodBtnTextActive: {
+    color: Colors.primary,
+    fontWeight: '700',
+  },
+  customSelectorBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#f9fafb',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  customModeToggle: {
+    flexDirection: 'row',
+    backgroundColor: '#e5e7eb',
+    borderRadius: 6,
+    padding: 2,
+  },
+  modeToggleBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  modeToggleBtnActive: {
+    backgroundColor: '#ffffff',
+  },
+  modeToggleText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Colors.textMuted,
+  },
+  modeToggleTextActive: {
+    color: Colors.primary,
+    fontWeight: '700',
+  },
+  navRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  navBtn: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  navBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.text,
+  },
+  navValText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: Colors.primary,
+    minWidth: 80,
+    textAlign: 'center',
+  },
+  todayQuickBtn: {
+    backgroundColor: Colors.primarySoft,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: Colors.primaryBorder,
+  },
+  todayQuickText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.primary,
+  },
   metricsRow: {
     flexDirection: 'row',
-    padding: 16,
-    gap: 12,
+    padding: 14,
+    gap: 10,
   },
   metricCard: {
     flex: 1,
-    padding: 14,
+    padding: 12,
   },
   profitCard: {
     borderLeftWidth: 4,
@@ -533,15 +778,43 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
   },
   metricValue: {
-    fontSize: 19,
+    fontSize: 17,
     fontWeight: '800',
     color: Colors.text,
     marginTop: 4,
   },
   metricSub: {
-    fontSize: 11,
+    fontSize: 10,
     color: Colors.textMuted,
     marginTop: 2,
+  },
+  paymentBreakdownBar: {
+    backgroundColor: '#ffffff',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  paymentBreakdownScroll: {
+    paddingHorizontal: 14,
+    gap: 8,
+  },
+  payChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f3f4f6',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+    gap: 6,
+  },
+  payChipLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+  },
+  payChipVal: {
+    fontSize: 12,
+    fontWeight: '800',
   },
   tabNav: {
     flexDirection: 'row',
@@ -575,8 +848,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 16,
-    gap: 14,
+    padding: 14,
+    gap: 12,
   },
   statementCard: {
     padding: 16,
@@ -613,6 +886,19 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
     color: Colors.primary,
+  },
+  paymentBreakdownDetails: {
+    backgroundColor: '#f9fafb',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 6,
+    marginBottom: 6,
+    gap: 2,
+  },
+  paymentBreakdownItem: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Colors.textSecondary,
   },
   subtotalRow: {
     backgroundColor: Colors.background,

@@ -26,11 +26,17 @@ import { formatRupiahDisplay } from '../utils/formatRupiah';
 // Modals
 import { TableSelectorModal } from '../components/table-selector-modal';
 import { CustomerSelectorModal } from '../components/customer-selector-modal';
-import { QuickEditProductModal } from '../components/quick-edit-product-modal';
+import { MenuFormModal } from '../components/menu-form-modal';
 import { PaymentModal } from '../components/payment-modal';
 import { ReceiptPreviewModal } from '../components/receipt-preview-modal';
 import { PrinterManagementModal } from '../components/printer-management-modal';
-import { PrintReceiptData, autoRoutePrint } from '../services/print';
+import {
+  PrintReceiptData,
+  autoRoutePrint,
+  printKitchenTicket,
+  printKitchenAdditionalTicket,
+  printTemporaryBill,
+} from '../services/print';
 import { formatFullIndonesianDate, formatRealtimeClock, getBusinessDate } from '../utils/sessionHelper';
 
 export default function TransaksiScreen() {
@@ -55,6 +61,9 @@ export default function TransaksiScreen() {
     activePendingTransactionId,
     customerName,
     eligibleReward,
+    storeProfile,
+    discountAmount,
+    loadStoreSettings,
     addToCart,
     updateCartQty,
     removeFromCart,
@@ -64,15 +73,17 @@ export default function TransaksiScreen() {
     getTotal,
     saveAsPendingOrder,
     loadPendingOrders,
+    markTableAsBilling,
   } = useTransactionStore();
 
   // Modals state
   const [tableModalVisible, setTableModalVisible] = useState(false);
   const [customerModalVisible, setCustomerModalVisible] = useState(false);
   const [paymentModalVisible, setPaymentModalVisible] = useState(false);
-  const [quickEditModalVisible, setQuickEditModalVisible] = useState(false);
+  const [menuModalVisible, setMenuModalVisible] = useState(false);
   const [printerModalVisible, setPrinterModalVisible] = useState(false);
   const [receiptPreviewVisible, setReceiptPreviewVisible] = useState(false);
+  const [receiptPreviewTab, setReceiptPreviewTab] = useState<'customer' | 'kitchen' | 'temp_bill'>('customer');
   const [lastReceiptData, setLastReceiptData] = useState<PrintReceiptData | null>(null);
   const [selectedMenuForEdit, setSelectedMenuForEdit] = useState<MenuItem | null>(null);
 
@@ -81,6 +92,7 @@ export default function TransaksiScreen() {
     loadCategories(db);
     loadMenus(db);
     loadPendingOrders(db);
+    loadStoreSettings(db);
   }, [db]);
 
   // Filter menu berdasarkan kategori & pencarian teks
@@ -98,7 +110,7 @@ export default function TransaksiScreen() {
   const tax = getTaxAmount();
   const grandTotal = getTotal();
 
-  // Handle Simpan Meja / Pending
+  // Handle Simpan Meja / Pending & Cetak Tiket Dapur
   const handleHoldOrder = async () => {
     if (cart.length === 0) {
       Alert.alert('Perhatian', 'Keranjang pesanan masih kosong.');
@@ -106,14 +118,108 @@ export default function TransaksiScreen() {
     }
 
     try {
+      const now = new Date();
+      const timeStr = `${formatFullIndonesianDate(now)}, ${formatRealtimeClock(now)}`;
       const res = await saveAsPendingOrder(db);
-      Alert.alert(
-        'Pesanan Meja Disimpan',
-        `Pesanan ${tableNumber} berhasil disimpan sebagai pending (${res.invoiceNumber}).`,
-        [{ text: 'OK', onPress: () => clearCart() }]
-      );
+
+      if (res.isAdditional && res.deltaItems.length > 0) {
+        // Cetak tiket dapur untuk pesanan tambahan (hanya item tambahan)
+        printKitchenAdditionalTicket({
+          invoiceNumber: res.invoiceNumber,
+          tableNumber: res.tableNumber || tableNumber,
+          dateTimeString: timeStr,
+          additionalItems: res.deltaItems.map((d) => ({
+            name: d.name,
+            price: d.price,
+            qty: d.qty,
+            subtotal: d.subtotal,
+            is_additional: 1,
+          })),
+        }).catch((err) => console.warn('Gagal cetak tiket sambungan dapur:', err));
+
+        Alert.alert(
+          'Pesanan Sambungan Disimpan',
+          `Pesanan tambahan meja ${tableNumber} berhasil disimpan (${res.invoiceNumber}) dan tiket pesanan tambahan dikirim ke dapur.`,
+          [{ text: 'OK', onPress: () => clearCart() }]
+        );
+      } else {
+        // Cetak tiket dapur awal untuk pesanan meja baru (tanpa harga)
+        printKitchenTicket({
+          invoiceNumber: res.invoiceNumber,
+          tableNumber: res.tableNumber || tableNumber,
+          dateTimeString: timeStr,
+          items: cart.map((i) => ({
+            name: i.name,
+            price: i.price,
+            qty: i.qty,
+            subtotal: i.subtotal,
+            is_additional: 0,
+          })),
+        }).catch((err) => console.warn('Gagal cetak tiket dapur:', err));
+
+        Alert.alert(
+          'Pesanan Meja Disimpan',
+          `Pesanan ${tableNumber} berhasil disimpan sebagai pending (${res.invoiceNumber}) dan tiket dikirim ke dapur.`,
+          [{ text: 'OK', onPress: () => clearCart() }]
+        );
+      }
     } catch (err: any) {
       Alert.alert('Gagal', err?.message || 'Gagal menyimpan pesanan pending');
+    }
+  };
+
+  // Handle Pratinjau / Cetak Tagihan Sementara
+  const handleTemporaryBill = async () => {
+    if (cart.length === 0) {
+      Alert.alert('Perhatian', 'Keranjang pesanan masih kosong.');
+      return;
+    }
+
+    try {
+      const now = new Date();
+      let invoiceNo = 'INV-TEMP';
+
+      if (activePendingTransactionId) {
+        await markTableAsBilling(db, activePendingTransactionId);
+        const txRow = await db.getFirstAsync<{ invoice_number: string }>(
+          'SELECT invoice_number FROM transactions WHERE id = ?',
+          [activePendingTransactionId]
+        );
+        if (txRow?.invoice_number) invoiceNo = txRow.invoice_number;
+      }
+
+      const tempBillPayload: PrintReceiptData = {
+        storeName: storeProfile.storeName || 'ANGKRINGAN JOGJA',
+        storeAddress: storeProfile.storeAddress || 'Jl. Malioboro No. 45, Yogyakarta',
+        storePhone: storeProfile.storePhone || '0812-3456-7890',
+        receiptFooter: storeProfile.receiptFooter || 'Matur Nuwun Sampun Rawuh!',
+        invoiceNumber: invoiceNo,
+        businessDate: getBusinessDate(now),
+        dateTimeString: `${formatFullIndonesianDate(now)}, ${formatRealtimeClock(now)}`,
+        tableNumber,
+        customerName,
+        cashierName: 'Kasir',
+        items: cart.map((i) => ({
+          name: i.name,
+          price: i.price,
+          qty: i.qty,
+          subtotal: i.subtotal,
+          is_additional: i.is_additional,
+        })),
+        subtotal,
+        taxAmount: tax,
+        discountAmount,
+        total: grandTotal,
+        paymentMethod: 'tagihan_sementara',
+        paymentAmount: 0,
+        changeAmount: 0,
+      };
+
+      setLastReceiptData(tempBillPayload);
+      setReceiptPreviewTab('temp_bill');
+      setReceiptPreviewVisible(true);
+    } catch (err: any) {
+      Alert.alert('Gagal', err?.message || 'Gagal memproses tagihan sementara');
     }
   };
 
@@ -226,9 +332,9 @@ export default function TransaksiScreen() {
                     onLongPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
                       setSelectedMenuForEdit(item);
-                      setQuickEditModalVisible(true);
+                      setMenuModalVisible(true);
                     }}
-                    delayLongPress={2000} // Long-press 2-3 detik untuk Quick Edit
+                    delayLongPress={200}
                   >
                     {/* Wadah Foto Menu Bersih */}
                     <View style={styles.menuImageContainer}>
@@ -435,9 +541,17 @@ export default function TransaksiScreen() {
                 title={activePendingTransactionId ? 'Perbarui Meja' : 'Simpan Pending'}
                 variant="outline"
                 size="md"
-                style={{ flex: 1.5 }}
+                style={{ flex: 1.3 }}
                 disabled={cart.length === 0}
                 onPress={handleHoldOrder}
+              />
+              <Button
+                title="Tagihan"
+                variant="secondary"
+                size="md"
+                style={{ flex: 1 }}
+                disabled={cart.length === 0}
+                onPress={handleTemporaryBill}
               />
             </View>
 
@@ -465,11 +579,11 @@ export default function TransaksiScreen() {
         onClose={() => setCustomerModalVisible(false)}
       />
 
-      <QuickEditProductModal
-        visible={quickEditModalVisible}
-        menu={selectedMenuForEdit}
+      <MenuFormModal
+        visible={menuModalVisible}
+        menuItem={selectedMenuForEdit}
         onClose={() => {
-          setQuickEditModalVisible(false);
+          setMenuModalVisible(false);
           setSelectedMenuForEdit(null);
         }}
       />
@@ -481,10 +595,10 @@ export default function TransaksiScreen() {
           // Siapkan data cetak struk lengkap
           const now = new Date();
           const receiptPayload: PrintReceiptData = {
-            storeName: 'ANGKRINGAN JOGJA',
-            storeAddress: 'Jl. Malioboro No. 45, Yogyakarta',
-            storePhone: '0812-3456-7890',
-            receiptFooter: 'Matur Nuwun Sampun Rawuh!',
+            storeName: storeProfile.storeName || 'ANGKRINGAN JOGJA',
+            storeAddress: storeProfile.storeAddress || 'Jl. Malioboro No. 45, Yogyakarta',
+            storePhone: storeProfile.storePhone || '0812-3456-7890',
+            receiptFooter: storeProfile.receiptFooter || 'Matur Nuwun Sampun Rawuh!',
             invoiceNumber: result.invoiceNumber,
             businessDate: getBusinessDate(now),
             dateTimeString: `${formatFullIndonesianDate(now)}, ${formatRealtimeClock(now)}`,
@@ -501,12 +615,13 @@ export default function TransaksiScreen() {
             subtotal,
             taxAmount: tax,
             total: result.total,
-            paymentMethod: 'tunai', // default or selected
+            paymentMethod: result.paymentMethod || 'tunai',
             paymentAmount: result.paymentAmount,
             changeAmount: result.change,
           };
 
           setLastReceiptData(receiptPayload);
+          setReceiptPreviewTab('customer');
           setReceiptPreviewVisible(true);
 
           // Eksekusi auto-print multi-printer Bluetooth di background
@@ -517,6 +632,7 @@ export default function TransaksiScreen() {
       <ReceiptPreviewModal
         visible={receiptPreviewVisible}
         data={lastReceiptData}
+        initialTab={receiptPreviewTab}
         onClose={() => setReceiptPreviewVisible(false)}
       />
 

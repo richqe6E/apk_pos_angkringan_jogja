@@ -51,6 +51,11 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase): Promise<void> {
       console.warn('Initial PRAGMA warning:', initErr);
     }
 
+    // Migrasi data kas masuk legacy: 'in' -> 'income'
+    try {
+      await db.runAsync("UPDATE cash_ledger SET type = 'income' WHERE type = 'in'");
+    } catch {}
+
     const DATABASE_VERSION = 1;
     const versionRow = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
     const currentVersion = versionRow?.user_version ?? 0;

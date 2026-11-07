@@ -184,6 +184,21 @@ export async function printKitchenTicket(data: {
 }): Promise<void> {
   if (Platform.OS !== 'android') return;
 
+  const hasPermission = await ensureBluetoothPermissions();
+  if (!hasPermission) {
+    console.warn('Izin Bluetooth belum diberikan.');
+    return;
+  }
+
+  const { kitchenPrinter } = usePrinterStore.getState();
+  if (kitchenPrinter?.address) {
+    try {
+      await BluetoothManager.connect(kitchenPrinter.address);
+    } catch {
+      // printer already connected or fallback
+    }
+  }
+
   await BluetoothEscposPrinter.printerInit();
 
   await BluetoothEscposPrinter.printerAlign(1); // CENTER
@@ -237,6 +252,21 @@ export async function printKitchenAdditionalTicket(data: {
   if (Platform.OS !== 'android') return;
   if (!data.additionalItems || data.additionalItems.length === 0) return;
 
+  const hasPermission = await ensureBluetoothPermissions();
+  if (!hasPermission) {
+    console.warn('Izin Bluetooth belum diberikan.');
+    return;
+  }
+
+  const { kitchenPrinter } = usePrinterStore.getState();
+  if (kitchenPrinter?.address) {
+    try {
+      await BluetoothManager.connect(kitchenPrinter.address);
+    } catch {
+      // printer already connected or fallback
+    }
+  }
+
   await BluetoothEscposPrinter.printerInit();
 
   await BluetoothEscposPrinter.printerAlign(1); // CENTER
@@ -278,7 +308,172 @@ export async function printKitchenAdditionalTicket(data: {
 }
 
 /**
- * 4. AUTO-ROUTE EXECUTION
+ * 4. FORMAT STRUK TAGIHAN SEMENTARA (BUKAN BUKTI BAYAR)
+ */
+export function formatTemporaryBillReceipt(data: PrintReceiptData): string[] {
+  const lines: string[] = [];
+
+  lines.push('*** TAGIHAN SEMENTARA (BUKAN BUKTI BAYAR) ***');
+  lines.push(data.storeName || 'ANGKRINGAN JOGJA');
+  if (data.storeAddress) lines.push(data.storeAddress);
+  if (data.storePhone) lines.push(`Telp: ${data.storePhone}`);
+  lines.push(DIVIDER_EQUAL);
+
+  lines.push(`No. Nota : ${data.invoiceNumber}`);
+  lines.push(`Waktu    : ${data.dateTimeString}`);
+  lines.push(`Meja     : ${data.tableNumber}`);
+  lines.push(`Customer : ${data.customerName}`);
+  lines.push(`Kasir    : ${data.cashierName || 'Kasir'}`);
+  lines.push(`Status   : BELUM LUNAS (SEMENTARA)`);
+  lines.push(DIVIDER_DASH);
+
+  for (const item of data.items) {
+    lines.push(item.name);
+    lines.push(
+      formatTotalLine(
+        `  ${item.qty} x ${formatRupiahDisplay(item.price, false)}`,
+        formatRupiahDisplay(item.subtotal, false)
+      )
+    );
+  }
+  lines.push(DIVIDER_DASH);
+
+  lines.push(formatTotalLine('Subtotal', formatRupiahDisplay(data.subtotal)));
+  if (data.discountAmount && data.discountAmount > 0) {
+    lines.push(formatTotalLine('Diskon', `- ${formatRupiahDisplay(data.discountAmount)}`));
+  }
+  if (data.taxAmount && data.taxAmount > 0) {
+    lines.push(formatTotalLine('Pajak (PB1)', formatRupiahDisplay(data.taxAmount)));
+  }
+  lines.push(formatTotalLine('TOTAL TAGIHAN', formatRupiahDisplay(data.total)));
+
+  lines.push(DIVIDER_EQUAL);
+  lines.push('*** TAGIHAN SEMENTARA ***');
+  lines.push('BUKAN BUKTI PEMBAYARAN SAH');
+  lines.push('Harap lakukan pembayaran di kasir');
+  lines.push(data.receiptFooter || 'Matur Nuwun Sampun Rawuh!');
+
+  return lines;
+}
+
+/**
+ * 5. CETAK TAGIHAN SEMENTARA / TEMPORARY BILL
+ */
+export async function printTemporaryBill(data: PrintReceiptData): Promise<void> {
+  if (Platform.OS !== 'android') return;
+
+  const hasPermission = await ensureBluetoothPermissions();
+  if (!hasPermission) {
+    console.warn('Izin Bluetooth belum diberikan.');
+    return;
+  }
+
+  const { cashierPrinter } = usePrinterStore.getState();
+  if (cashierPrinter?.address) {
+    try {
+      await BluetoothManager.connect(cashierPrinter.address);
+    } catch {
+      // printer already connected or fallback
+    }
+  }
+
+  await BluetoothEscposPrinter.printerInit();
+
+  // Watermark Header
+  await BluetoothEscposPrinter.printerAlign(1); // CENTER
+  await BluetoothEscposPrinter.printText(`*** TAGIHAN SEMENTARA ***\n\r`, {
+    encoding: 'GBK',
+    codepage: 0,
+    widthtimes: 1,
+    heigthtimes: 1,
+    fonttype: 1,
+  });
+  await BluetoothEscposPrinter.printText(`(BUKAN BUKTI BAYAR)\n\r`, {});
+
+  // Header Toko
+  await BluetoothEscposPrinter.printText(`${data.storeName || 'ANGKRINGAN JOGJA'}\n\r`, {
+    encoding: 'GBK',
+    codepage: 0,
+    widthtimes: 1,
+    heigthtimes: 0,
+    fonttype: 1,
+  });
+  if (data.storeAddress) {
+    await BluetoothEscposPrinter.printText(`${data.storeAddress}\n\r`, {});
+  }
+  if (data.storePhone) {
+    await BluetoothEscposPrinter.printText(`Telp: ${data.storePhone}\n\r`, {});
+  }
+  await BluetoothEscposPrinter.printText(`${DIVIDER_EQUAL}\n\r`, {});
+
+  // Meta Transaksi
+  await BluetoothEscposPrinter.printerAlign(0); // LEFT
+  await BluetoothEscposPrinter.printText(`No. Nota : ${data.invoiceNumber}\n\r`, {});
+  await BluetoothEscposPrinter.printText(`Waktu    : ${data.dateTimeString}\n\r`, {});
+  await BluetoothEscposPrinter.printText(`Meja     : ${data.tableNumber}\n\r`, {});
+  await BluetoothEscposPrinter.printText(`Customer : ${data.customerName}\n\r`, {});
+  await BluetoothEscposPrinter.printText(`Kasir    : ${data.cashierName || 'Kasir'}\n\r`, {});
+  await BluetoothEscposPrinter.printText(`Status   : BELUM LUNAS\n\r`, {});
+  await BluetoothEscposPrinter.printText(`${DIVIDER_DASH}\n\r`, {});
+
+  // Item list
+  for (const item of data.items) {
+    await BluetoothEscposPrinter.printText(`${item.name}\n\r`, {});
+    const line = formatTotalLine(
+      `  ${item.qty} x ${formatRupiahDisplay(item.price, false)}`,
+      formatRupiahDisplay(item.subtotal, false)
+    );
+    await BluetoothEscposPrinter.printText(`${line}\n\r`, {});
+  }
+
+  await BluetoothEscposPrinter.printText(`${DIVIDER_DASH}\n\r`, {});
+
+  // Ringkasan
+  await BluetoothEscposPrinter.printText(
+    `${formatTotalLine('Subtotal', formatRupiahDisplay(data.subtotal))}\n\r`,
+    {}
+  );
+  if (data.discountAmount && data.discountAmount > 0) {
+    await BluetoothEscposPrinter.printText(
+      `${formatTotalLine('Diskon', `- ${formatRupiahDisplay(data.discountAmount)}`)}\n\r`,
+      {}
+    );
+  }
+  if (data.taxAmount && data.taxAmount > 0) {
+    await BluetoothEscposPrinter.printText(
+      `${formatTotalLine('Pajak (PB1)', formatRupiahDisplay(data.taxAmount))}\n\r`,
+      {}
+    );
+  }
+
+  await BluetoothEscposPrinter.printText(
+    `${formatTotalLine('TOTAL TAGIHAN', formatRupiahDisplay(data.total))}\n\r`,
+    {
+      encoding: 'GBK',
+      codepage: 0,
+      widthtimes: 1,
+      heigthtimes: 0,
+      fonttype: 1,
+    }
+  );
+
+  await BluetoothEscposPrinter.printText(`${DIVIDER_EQUAL}\n\r`, {});
+
+  // Footer Watermark Warning
+  await BluetoothEscposPrinter.printerAlign(1); // CENTER
+  await BluetoothEscposPrinter.printText(`*** BUKAN BUKTI BAYAR ***\n\r`, {});
+  await BluetoothEscposPrinter.printText(`Harap lakukan pembayaran di kasir\n\r`, {});
+  await BluetoothEscposPrinter.printText(
+    `${data.receiptFooter || 'Matur Nuwun Sampun Rawuh!'}\n\r`,
+    {}
+  );
+
+  await BluetoothEscposPrinter.printAndFeed(6);
+  await BluetoothEscposPrinter.cutOnePoint();
+}
+
+/**
+ * 6. AUTO-ROUTE EXECUTION
  * Mengalirkan pencetakan ke Printer Kasir dan Printer Dapur secara berurutan (Serial Lock)
  */
 export async function autoRoutePrint(

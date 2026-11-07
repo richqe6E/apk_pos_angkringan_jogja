@@ -16,6 +16,9 @@ import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
 import { formatRupiahDisplay } from '../utils/formatRupiah';
+import { getBusinessDate } from '../utils/sessionHelper';
+import { PrintReceiptData } from '../services/print';
+import { ReceiptPreviewModal } from './receipt-preview-modal';
 
 interface TableSelectorModalProps {
   visible: boolean;
@@ -37,12 +40,16 @@ export function TableSelectorModal({ visible, onClose }: TableSelectorModalProps
     pendingOrders,
     openPendingOrder,
     mergeTables,
+    storeProfile,
+    markTableAsBilling,
   } = useTransactionStore();
 
   const [activeTab, setActiveTab] = useState<'pilih' | 'pending' | 'gabung'>('pilih');
   const [customTable, setCustomTable] = useState('');
   const [selectedPendingForMerge, setSelectedPendingForMerge] = useState<number[]>([]);
   const [mergeTargetName, setMergeTargetName] = useState('');
+  const [tempBillData, setTempBillData] = useState<PrintReceiptData | null>(null);
+  const [tempBillModalVisible, setTempBillModalVisible] = useState(false);
 
   const handleSelectTable = (name: string) => {
     setTableNumber(name);
@@ -55,6 +62,53 @@ export function TableSelectorModal({ visible, onClose }: TableSelectorModalProps
       onClose();
     } catch (err: any) {
       Alert.alert('Gagal', err?.message || 'Gagal membuka pesanan meja');
+    }
+  };
+
+  const handleTemporaryBill = async (order: PendingOrderSummary) => {
+    try {
+      const items = await db.getAllAsync<any>(
+        'SELECT * FROM transaction_items WHERE transaction_id = ? ORDER BY id ASC',
+        [order.id]
+      );
+      const tx = await db.getFirstAsync<any>(
+        'SELECT tax_amount, discount_amount, cashier_name, business_date FROM transactions WHERE id = ?',
+        [order.id]
+      );
+
+      await markTableAsBilling(db, order.id);
+
+      const billPayload: PrintReceiptData = {
+        storeName: storeProfile.storeName,
+        storeAddress: storeProfile.storeAddress,
+        storePhone: storeProfile.storePhone,
+        receiptFooter: storeProfile.receiptFooter,
+        invoiceNumber: order.invoice_number,
+        businessDate: tx?.business_date || getBusinessDate(),
+        dateTimeString: order.created_at,
+        tableNumber: order.table_number,
+        customerName: order.customer_name,
+        cashierName: tx?.cashier_name || 'Kasir',
+        items: (items || []).map((i) => ({
+          name: i.menu_name,
+          price: i.price,
+          qty: i.qty,
+          subtotal: i.subtotal,
+          is_additional: i.is_additional,
+        })),
+        subtotal: order.subtotal,
+        taxAmount: tx?.tax_amount || 0,
+        discountAmount: tx?.discount_amount || 0,
+        total: order.total,
+        paymentMethod: 'tagihan_sementara',
+        paymentAmount: 0,
+        changeAmount: 0,
+      };
+
+      setTempBillData(billPayload);
+      setTempBillModalVisible(true);
+    } catch (err: any) {
+      Alert.alert('Gagal', err?.message || 'Gagal memproses tagihan sementara');
     }
   };
 
@@ -137,7 +191,10 @@ export function TableSelectorModal({ visible, onClose }: TableSelectorModalProps
               <View style={styles.gridContainer}>
                 {PRESET_TABLES.map((tName) => {
                   const isCurrent = tableNumber === tName;
-                  const hasPending = pendingOrders.some((p) => p.table_number === tName);
+                  const pendingOrder = pendingOrders.find((p) => p.table_number === tName);
+                  const isBilling = pendingOrder?.status === 'billing';
+                  const isOccupied = !!pendingOrder && !isBilling;
+                  const isEmpty = !pendingOrder;
 
                   return (
                     <TouchableOpacity
@@ -145,21 +202,35 @@ export function TableSelectorModal({ visible, onClose }: TableSelectorModalProps
                       style={[
                         styles.tableCard,
                         isCurrent && styles.tableCardCurrent,
-                        hasPending && styles.tableCardPending,
+                        isOccupied && styles.tableCardPending,
+                        isBilling && styles.tableCardBilling,
                       ]}
-                      onPress={() => handleSelectTable(tName)}
+                      onPress={() => {
+                        if (pendingOrder) {
+                          handleOpenPending(pendingOrder);
+                        } else {
+                          handleSelectTable(tName);
+                        }
+                      }}
                     >
                       <Text
                         style={[
                           styles.tableName,
                           isCurrent && styles.tableNameCurrent,
-                          hasPending && styles.tableNamePending,
+                          isOccupied && styles.tableNamePending,
+                          isBilling && styles.tableNameBilling,
                         ]}
                       >
                         {tName}
                       </Text>
-                      {hasPending && (
-                        <Badge label="Pending" variant="warning" size="sm" style={{ marginTop: 4 }} />
+                      {isEmpty && (
+                        <Badge label="Kosong" variant="success" size="sm" style={{ marginTop: 4 }} />
+                      )}
+                      {isOccupied && (
+                        <Badge label="Terisi" variant="warning" size="sm" style={{ marginTop: 4 }} />
+                      )}
+                      {isBilling && (
+                        <Badge label="Siap Bayar" variant="info" size="sm" style={{ marginTop: 4 }} />
                       )}
                     </TouchableOpacity>
                   );
@@ -195,25 +266,40 @@ export function TableSelectorModal({ visible, onClose }: TableSelectorModalProps
                 </View>
               ) : (
                 pendingOrders.map((order) => (
-                  <TouchableOpacity
-                    key={order.id}
-                    style={styles.pendingItemCard}
-                    onPress={() => handleOpenPending(order)}
-                  >
-                    <View style={{ flex: 1 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                        <Text style={styles.pendingTableName}>{order.table_number}</Text>
-                        <Badge label="Belum Dibayar" variant="warning" size="sm" />
+                  <View key={order.id} style={styles.pendingCardWrapper}>
+                    <View style={styles.pendingCardHeader}>
+                      <View style={{ flex: 1 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <Text style={styles.pendingTableName}>{order.table_number}</Text>
+                          {order.status === 'billing' ? (
+                            <Badge label="Siap Bayar / Billing" variant="info" size="sm" />
+                          ) : (
+                            <Badge label="Terisi" variant="warning" size="sm" />
+                          )}
+                        </View>
+                        <Text style={styles.pendingSub}>
+                          {order.invoice_number} • {order.customer_name} • {order.item_count} menu
+                        </Text>
                       </View>
-                      <Text style={styles.pendingSub}>
-                        {order.invoice_number} • {order.customer_name} • {order.item_count} menu
-                      </Text>
-                    </View>
-                    <View style={{ alignItems: 'flex-end' }}>
                       <Text style={styles.pendingTotal}>{formatRupiahDisplay(order.total)}</Text>
-                      <Text style={styles.pendingActionText}>Buka Tagihan →</Text>
                     </View>
-                  </TouchableOpacity>
+                    <View style={styles.pendingActionsRow}>
+                      <Button
+                        title="📋 Tagihan Sementara"
+                        variant="outline"
+                        size="sm"
+                        style={{ flex: 1 }}
+                        onPress={() => handleTemporaryBill(order)}
+                      />
+                      <Button
+                        title="Buka Pesanan →"
+                        variant="primary"
+                        size="sm"
+                        style={{ flex: 1 }}
+                        onPress={() => handleOpenPending(order)}
+                      />
+                    </View>
+                  </View>
                 ))
               )}
             </ScrollView>
@@ -282,6 +368,13 @@ export function TableSelectorModal({ visible, onClose }: TableSelectorModalProps
               )}
             </ScrollView>
           )}
+          {/* Modal Pratinjau Tagihan Sementara */}
+          <ReceiptPreviewModal
+            visible={tempBillModalVisible}
+            data={tempBillData}
+            initialTab="temp_bill"
+            onClose={() => setTempBillModalVisible(false)}
+          />
         </Card>
       </View>
     </Modal>
@@ -389,6 +482,10 @@ const styles = StyleSheet.create({
     borderColor: Colors.warning,
     backgroundColor: Colors.warningBg,
   },
+  tableCardBilling: {
+    borderColor: '#3b82f6',
+    backgroundColor: '#eff6ff',
+  },
   tableName: {
     fontSize: 13,
     fontWeight: '700',
@@ -399,6 +496,30 @@ const styles = StyleSheet.create({
   },
   tableNamePending: {
     color: Colors.warning,
+  },
+  tableNameBilling: {
+    color: '#1d4ed8',
+  },
+  pendingCardWrapper: {
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 6,
+    padding: 12,
+    marginBottom: 10,
+    backgroundColor: '#ffffff',
+  },
+  pendingCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  pendingActionsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: Colors.borderLight,
   },
   customRow: {
     flexDirection: 'row',

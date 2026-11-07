@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import * as FileSystem from 'expo-file-system/legacy';
 import { SQLiteDatabase, withSqliteRetry } from '../services/database';
 import { getBusinessDate, calculateAttendanceStatus, formatRealtimeClock } from '../utils/sessionHelper';
 import { saveImageLocally, deleteMonthlyAttendancePhotos } from '../utils/imageStorage';
@@ -34,6 +35,7 @@ interface AttendanceState {
     closedBy?: string
   ) => Promise<{ sessionClosedAt: string; totalStaffClosed: number }>;
   loadAttendanceHistory: (db: SQLiteDatabase, monthPrefix?: string) => Promise<AttendanceRecord[]>;
+  cleanupOldAttendance: (db: SQLiteDatabase, monthPrefix: string) => Promise<number>;
   deleteAttendancePhotosForMonth: (db: SQLiteDatabase, monthPrefix: string) => Promise<number>;
 }
 
@@ -129,28 +131,31 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
       const currentHours = String(now.getHours()).padStart(2, '0');
       const currentMinutes = String(now.getMinutes()).padStart(2, '0');
       const checkoutTimeString = `${currentHours}:${currentMinutes}`;
+      let totalStaffClosed = 0;
 
-      // 1. Serentak update seluruh staf yang belum absen pulang pada sesi ini
-      const updateRes = await withSqliteRetry(() =>
-        db.runAsync(
-          `UPDATE attendance
-           SET check_out_time = ?
-           WHERE business_date = ? AND (check_out_time IS NULL OR check_out_time = '')`,
-          [checkoutTimeString, businessDate]
-        )
-      );
-
-      // 2. Tandai operating session sebagai closed
+      // Wrap multi-query batch closing inside database transaction
       await withSqliteRetry(() =>
-        db.runAsync(
-          `INSERT INTO operating_sessions (business_date, opened_at, closed_at, opened_by, closed_by, status)
-           VALUES (?, datetime('now','localtime'), datetime('now','localtime'), ?, ?, 'closed')
-           ON CONFLICT(business_date) DO UPDATE SET
-             closed_at = datetime('now','localtime'),
-             closed_by = ?,
-             status = 'closed'`,
-          [businessDate, closedBy, closedBy, closedBy]
-        )
+        db.withTransactionAsync(async () => {
+          // 1. Serentak update seluruh staf yang belum absen pulang pada sesi ini
+          const updateRes = await db.runAsync(
+            `UPDATE attendance
+             SET check_out_time = ?
+             WHERE business_date = ? AND (check_out_time IS NULL OR check_out_time = '')`,
+            [checkoutTimeString, businessDate]
+          );
+          totalStaffClosed = updateRes.changes;
+
+          // 2. Tandai operating session sebagai closed
+          await db.runAsync(
+            `INSERT INTO operating_sessions (business_date, opened_at, closed_at, opened_by, closed_by, status)
+             VALUES (?, datetime('now','localtime'), datetime('now','localtime'), ?, ?, 'closed')
+             ON CONFLICT(business_date) DO UPDATE SET
+               closed_at = datetime('now','localtime'),
+               closed_by = ?,
+               status = 'closed'`,
+            [businessDate, closedBy, closedBy, closedBy]
+          );
+        })
       );
 
       await get().loadTodayAttendance(db);
@@ -158,7 +163,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
 
       return {
         sessionClosedAt: checkoutTimeString,
-        totalStaffClosed: updateRes.changes,
+        totalStaffClosed,
       };
     } catch (err) {
       set({ isSessionClosing: false });
@@ -189,11 +194,35 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
     }
   },
 
-  deleteAttendancePhotosForMonth: async (db: SQLiteDatabase, monthPrefix: string) => {
+  cleanupOldAttendance: async (db: SQLiteDatabase, monthPrefix: string) => {
     try {
-      const deletedFiles = await deleteMonthlyAttendancePhotos(monthPrefix);
+      // 1. Query path file foto absensi yang cocok dengan bulan yang ditentukan
+      const rows = await withSqliteRetry(() =>
+        db.getAllAsync<{ check_in_photo: string }>(
+          "SELECT check_in_photo FROM attendance WHERE business_date LIKE ? AND check_in_photo IS NOT NULL AND check_in_photo != ''",
+          [`${monthPrefix}%`]
+        )
+      );
 
-      // Kosongkan path di database agar tidak mengarah ke file yang sudah dihapus
+      let deletedCount = 0;
+      for (const r of rows || []) {
+        if (r.check_in_photo) {
+          try {
+            const info = await FileSystem.getInfoAsync(r.check_in_photo);
+            if (info.exists) {
+              await FileSystem.deleteAsync(r.check_in_photo, { idempotent: true });
+              deletedCount++;
+            }
+          } catch (e) {
+            console.warn('Gagal menghapus file foto absensi fisik:', e);
+          }
+        }
+      }
+
+      // Hapus juga file orphan jika ada di direktori menggunakan deleteMonthlyAttendancePhotos
+      const extraDeleted = await deleteMonthlyAttendancePhotos(monthPrefix);
+
+      // 2. Kosongkan path di database agar tidak mengarah ke file yang sudah dihapus
       await withSqliteRetry(() =>
         db.runAsync(
           `UPDATE attendance SET check_in_photo = '' WHERE business_date LIKE ?`,
@@ -202,11 +231,15 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
       );
 
       await get().loadTodayAttendance(db);
-      return deletedFiles;
+      return Math.max(deletedCount, extraDeleted);
     } catch (err) {
-      console.error('Error deleting attendance photos for month:', err);
+      console.error('Error cleaning up attendance photos:', err);
       return 0;
     }
+  },
+
+  deleteAttendancePhotosForMonth: async (db: SQLiteDatabase, monthPrefix: string) => {
+    return get().cleanupOldAttendance(db, monthPrefix);
   },
 }));
 

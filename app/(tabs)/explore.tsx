@@ -20,7 +20,7 @@ import { Button } from '../../components/ui/button';
 import { formatRupiahDisplay } from '../../utils/formatRupiah';
 import { MenuItem, useMenuStore } from '../../stores/menuStore';
 import { MenuFormModal } from '../../components/menu-form-modal';
-import { QuickEditProductModal } from '../../components/quick-edit-product-modal';
+import { CategoryFormModal } from '../../components/category-form-modal';
 
 export default function ExploreMenuScreen() {
   const db = useSQLiteContext();
@@ -34,15 +34,13 @@ export default function ExploreMenuScreen() {
     loadMenus,
     setSelectedCategoryId,
     setSearchQuery,
-    addCategory,
     deleteCategory,
     deleteMenu,
   } = useMenuStore();
 
   const [menuModalVisible, setMenuModalVisible] = useState(false);
   const [editingMenuItem, setEditingMenuItem] = useState<MenuItem | null>(null);
-  const [quickEditItem, setQuickEditItem] = useState<MenuItem | null>(null);
-  const [quickEditVisible, setQuickEditVisible] = useState(false);
+  const [categoryModalVisible, setCategoryModalVisible] = useState(false);
 
   useEffect(() => {
     loadCategories(db);
@@ -56,24 +54,6 @@ export default function ExploreMenuScreen() {
       (m.barcode && m.barcode.includes(searchQuery));
     return matchesCat && matchesSearch;
   });
-
-  const handleAddCategoryPrompt = () => {
-    Alert.prompt
-      ? Alert.prompt(
-          'Tambah Kategori Baru',
-          'Masukkan nama kategori menu (contoh: Nasi Bakar):',
-          async (text) => {
-            if (text && text.trim()) {
-              try {
-                await addCategory(db, text.trim());
-              } catch (err: any) {
-                Alert.alert('Gagal', err.message);
-              }
-            }
-          }
-        )
-      : Alert.alert('Tambah Kategori', 'Fitur tambah kategori dapat dilakukan melalui SQLite.');
-  };
 
   const handleDeleteMenu = (m: MenuItem) => {
     Alert.alert(
@@ -109,6 +89,13 @@ export default function ExploreMenuScreen() {
 
         <View style={styles.headerRight}>
           <RealtimeClockBadge showDate={false} />
+          <Button
+            title="+ Kategori"
+            variant="outline"
+            size="sm"
+            onPress={() => setCategoryModalVisible(true)}
+            style={styles.headerBtn}
+          />
           <Button
             title="+ Menu Baru"
             size="sm"
@@ -160,6 +147,13 @@ export default function ExploreMenuScreen() {
               </TouchableOpacity>
             );
           })}
+
+          <TouchableOpacity
+            style={styles.catNavAddBtn}
+            onPress={() => setCategoryModalVisible(true)}
+          >
+            <Text style={styles.catNavAddText}>+ Kategori</Text>
+          </TouchableOpacity>
         </ScrollView>
       </View>
 
@@ -215,18 +209,8 @@ export default function ExploreMenuScreen() {
                   </View>
                 </View>
 
-                {/* Actions */}
+                {/* Actions: Single unified Edit button and Hapus */}
                 <View style={styles.cardActions}>
-                  <Button
-                    title="Quick Edit"
-                    variant="outline"
-                    size="sm"
-                    onPress={() => {
-                      setQuickEditItem(item);
-                      setQuickEditVisible(true);
-                    }}
-                    style={{ flex: 1 }}
-                  />
                   <Button
                     title="Edit"
                     variant="outline"
@@ -250,18 +234,18 @@ export default function ExploreMenuScreen() {
         )}
       </View>
 
-      {/* Menu Form Modal */}
+      {/* Unified Menu Form Modal */}
       <MenuFormModal
         visible={menuModalVisible}
         menuItem={editingMenuItem}
         onClose={() => setMenuModalVisible(false)}
       />
 
-      {/* Quick Edit Modal */}
-      <QuickEditProductModal
-        visible={quickEditVisible}
-        menu={quickEditItem}
-        onClose={() => setQuickEditVisible(false)}
+      {/* Android-native Category Add Dialog */}
+      <CategoryFormModal
+        visible={categoryModalVisible}
+        onClose={() => setCategoryModalVisible(false)}
+        onSuccess={(newId) => setSelectedCategoryId(newId)}
       />
     </View>
   );
@@ -344,6 +328,20 @@ const styles = StyleSheet.create({
   catNavTextActive: {
     color: Colors.primary,
     fontWeight: '700',
+  },
+  catNavAddBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 6,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: Colors.primary,
+  },
+  catNavAddText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.primary,
   },
   content: {
     flex: 1,

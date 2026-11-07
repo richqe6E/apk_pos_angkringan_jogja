@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
-  Platform,
 } from 'react-native';
 import { Colors } from '../constants/theme';
 import { Button } from './ui/button';
@@ -19,17 +18,25 @@ import {
   printCustomerReceipt,
   printKitchenTicket,
   printKitchenAdditionalTicket,
+  printTemporaryBill,
 } from '../services/print';
 
 interface ReceiptPreviewModalProps {
   visible: boolean;
   data: PrintReceiptData | null;
+  initialTab?: 'customer' | 'kitchen' | 'temp_bill';
   onClose: () => void;
 }
 
-export function ReceiptPreviewModal({ visible, data, onClose }: ReceiptPreviewModalProps) {
-  const [previewTab, setPreviewTab] = useState<'customer' | 'kitchen'>('customer');
+export function ReceiptPreviewModal({ visible, data, initialTab = 'customer', onClose }: ReceiptPreviewModalProps) {
+  const [previewTab, setPreviewTab] = useState<'customer' | 'kitchen' | 'temp_bill'>(initialTab);
   const [isPrinting, setIsPrinting] = useState(false);
+
+  React.useEffect(() => {
+    if (visible && initialTab) {
+      setPreviewTab(initialTab);
+    }
+  }, [visible, initialTab]);
 
   if (!data) return null;
 
@@ -41,6 +48,8 @@ export function ReceiptPreviewModal({ visible, data, onClose }: ReceiptPreviewMo
     try {
       if (previewTab === 'customer') {
         await printCustomerReceipt(data);
+      } else if (previewTab === 'temp_bill') {
+        await printTemporaryBill(data);
       } else {
         if (hasAdditional) {
           await printKitchenAdditionalTicket({
@@ -81,14 +90,14 @@ export function ReceiptPreviewModal({ visible, data, onClose }: ReceiptPreviewMo
             </TouchableOpacity>
           </View>
 
-          {/* Segmented Switch Struk Customer vs Tiket Dapur */}
+          {/* Segmented Switch Struk Customer vs Tiket Dapur vs Tagihan Sementara */}
           <View style={styles.tabBar}>
             <TouchableOpacity
               style={[styles.tabItem, previewTab === 'customer' && styles.tabItemActive]}
               onPress={() => setPreviewTab('customer')}
             >
               <Text style={[styles.tabText, previewTab === 'customer' && styles.tabTextActive]}>
-                🧾 Struk Customer (Lengkap)
+                🧾 Struk Kasir
               </Text>
             </TouchableOpacity>
 
@@ -97,7 +106,16 @@ export function ReceiptPreviewModal({ visible, data, onClose }: ReceiptPreviewMo
               onPress={() => setPreviewTab('kitchen')}
             >
               <Text style={[styles.tabText, previewTab === 'kitchen' && styles.tabTextActive]}>
-                🍳 Tiket Dapur {hasAdditional ? '(Sambungan)' : '(Tanpa Harga)'}
+                🍳 Dapur {hasAdditional ? '(+) ' : ''}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.tabItem, previewTab === 'temp_bill' && styles.tabItemActive]}
+              onPress={() => setPreviewTab('temp_bill')}
+            >
+              <Text style={[styles.tabText, previewTab === 'temp_bill' && styles.tabTextActive]}>
+                📋 Tagihan Sementara
               </Text>
             </TouchableOpacity>
           </View>
@@ -178,6 +196,82 @@ export function ReceiptPreviewModal({ visible, data, onClose }: ReceiptPreviewMo
                   {data.receiptFooter || 'Matur Nuwun Sampun Rawuh!'}
                 </Text>
                 <Text style={styles.receiptFooterSub}>Simpan struk ini sebagai bukti pembayaran</Text>
+              </View>
+            ) : previewTab === 'temp_bill' ? (
+              /* ================== TAMPILAN TAGIHAN SEMENTARA ================== */
+              <View style={styles.paperContent}>
+                <View style={styles.watermarkBanner}>
+                  <Text style={styles.watermarkText}>*** TAGIHAN SEMENTARA ***</Text>
+                  <Text style={styles.watermarkSub}>BUKAN BUKTI PEMBAYARAN SAH</Text>
+                </View>
+
+                <Text style={styles.receiptStoreName}>{data.storeName || 'ANGKRINGAN JOGJA'}</Text>
+                {data.storeAddress ? <Text style={styles.receiptStoreSub}>{data.storeAddress}</Text> : null}
+                {data.storePhone ? <Text style={styles.receiptStoreSub}>Telp: {data.storePhone}</Text> : null}
+                <Text style={styles.receiptDivider}>================================</Text>
+
+                <View style={styles.receiptMetaRow}>
+                  <Text style={styles.receiptMeta}>No. Nota: {data.invoiceNumber}</Text>
+                  <Text style={styles.receiptMeta}>{data.dateTimeString}</Text>
+                </View>
+                <View style={styles.receiptMetaRow}>
+                  <Text style={styles.receiptMeta}>Meja: {data.tableNumber}</Text>
+                  <Text style={styles.receiptMeta}>Kasir: {data.cashierName || 'Kasir'}</Text>
+                </View>
+                <View style={styles.receiptMetaRow}>
+                  <Text style={styles.receiptMeta}>Customer: {data.customerName}</Text>
+                  <Badge label="SEMENTARA" variant="warning" size="sm" />
+                </View>
+                <Text style={styles.receiptDivider}>--------------------------------</Text>
+
+                {/* Items */}
+                {data.items.map((item, idx) => (
+                  <View key={idx} style={{ marginBottom: 4 }}>
+                    <Text style={styles.receiptItemName}>{item.name}</Text>
+                    <View style={styles.receiptItemSubRow}>
+                      <Text style={styles.receiptItemQty}>
+                        {item.qty} x {formatRupiahDisplay(item.price, false)}
+                      </Text>
+                      <Text style={styles.receiptItemSubtotal}>
+                        {formatRupiahDisplay(item.subtotal, false)}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+
+                <Text style={styles.receiptDivider}>--------------------------------</Text>
+
+                <View style={styles.receiptTotalRow}>
+                  <Text style={styles.receiptTotalLabel}>Subtotal</Text>
+                  <Text style={styles.receiptTotalVal}>{formatRupiahDisplay(data.subtotal)}</Text>
+                </View>
+                {data.discountAmount && data.discountAmount > 0 ? (
+                  <View style={styles.receiptTotalRow}>
+                    <Text style={styles.receiptTotalLabel}>Diskon</Text>
+                    <Text style={styles.receiptTotalVal}>- {formatRupiahDisplay(data.discountAmount)}</Text>
+                  </View>
+                ) : null}
+                {data.taxAmount && data.taxAmount > 0 ? (
+                  <View style={styles.receiptTotalRow}>
+                    <Text style={styles.receiptTotalLabel}>Pajak (PB1)</Text>
+                    <Text style={styles.receiptTotalVal}>{formatRupiahDisplay(data.taxAmount)}</Text>
+                  </View>
+                ) : null}
+
+                <View style={[styles.receiptTotalRow, { marginTop: 4 }]}>
+                  <Text style={styles.receiptGrandTotalLabel}>TOTAL TAGIHAN</Text>
+                  <Text style={styles.receiptGrandTotalVal}>{formatRupiahDisplay(data.total)}</Text>
+                </View>
+
+                <Text style={styles.receiptDivider}>================================</Text>
+                <View style={styles.tempBillNotice}>
+                  <Text style={styles.tempBillNoticeTitle}>*** TAGIHAN SEMENTARA ***</Text>
+                  <Text style={styles.tempBillNoticeDesc}>Silakan lakukan pembayaran di kasir</Text>
+                  <Text style={styles.tempBillNoticeDesc}>Bukan bukti pelunasan transaksi</Text>
+                </View>
+                <Text style={styles.receiptFooterText}>
+                  {data.receiptFooter || 'Matur Nuwun Sampun Rawuh!'}
+                </Text>
               </View>
             ) : (
               /* ================== TAMPILAN TIKET DAPUR ================== */
@@ -328,21 +422,21 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   receiptStoreName: {
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontFamily: 'monospace',
     fontSize: 15,
     fontWeight: '900',
     textAlign: 'center',
     color: '#0f172a',
   },
   receiptStoreSub: {
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontFamily: 'monospace',
     fontSize: 10,
     textAlign: 'center',
     color: '#475569',
     marginTop: 2,
   },
   receiptDivider: {
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontFamily: 'monospace',
     fontSize: 11,
     textAlign: 'center',
     color: '#64748b',
@@ -353,12 +447,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   receiptMeta: {
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontFamily: 'monospace',
     fontSize: 10,
     color: '#334155',
   },
   receiptItemName: {
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontFamily: 'monospace',
     fontSize: 11,
     fontWeight: '700',
     color: '#0f172a',
@@ -368,12 +462,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   receiptItemQty: {
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontFamily: 'monospace',
     fontSize: 10,
     color: '#475569',
   },
   receiptItemSubtotal: {
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontFamily: 'monospace',
     fontSize: 11,
     fontWeight: '700',
     color: '#0f172a',
@@ -384,51 +478,51 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   receiptTotalLabel: {
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontFamily: 'monospace',
     fontSize: 11,
     color: '#334155',
   },
   receiptTotalVal: {
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontFamily: 'monospace',
     fontSize: 11,
     fontWeight: '600',
     color: '#0f172a',
   },
   receiptGrandTotalLabel: {
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontFamily: 'monospace',
     fontSize: 13,
     fontWeight: '900',
     color: '#0f172a',
   },
   receiptGrandTotalVal: {
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontFamily: 'monospace',
     fontSize: 14,
     fontWeight: '900',
     color: Colors.primaryDark,
   },
   receiptFooterText: {
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontFamily: 'monospace',
     fontSize: 11,
     fontWeight: '700',
     textAlign: 'center',
     color: '#0f172a',
   },
   receiptFooterSub: {
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontFamily: 'monospace',
     fontSize: 9,
     textAlign: 'center',
     color: '#64748b',
     marginTop: 2,
   },
   kitchenHeader: {
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontFamily: 'monospace',
     fontSize: 13,
     fontWeight: '900',
     textAlign: 'center',
     color: Colors.danger,
   },
   kitchenTableBig: {
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontFamily: 'monospace',
     fontSize: 16,
     fontWeight: '900',
     textAlign: 'center',
@@ -442,24 +536,67 @@ const styles = StyleSheet.create({
     marginVertical: 4,
   },
   kitchenQtyBadge: {
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontFamily: 'monospace',
     fontSize: 14,
     fontWeight: '900',
     color: Colors.primaryDark,
   },
   kitchenItemName: {
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontFamily: 'monospace',
     fontSize: 12,
     fontWeight: '800',
     color: '#0f172a',
     flex: 1,
   },
   kitchenFooter: {
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontFamily: 'monospace',
     fontSize: 10,
     fontWeight: '700',
     textAlign: 'center',
     color: '#b91c1c',
+  },
+  watermarkBanner: {
+    backgroundColor: '#fef3c7',
+    borderColor: '#f59e0b',
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderRadius: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  watermarkText: {
+    fontFamily: 'monospace',
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#92400e',
+    textAlign: 'center',
+  },
+  watermarkSub: {
+    fontFamily: 'monospace',
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#b45309',
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  tempBillNotice: {
+    alignItems: 'center',
+    marginVertical: 6,
+  },
+  tempBillNoticeTitle: {
+    fontFamily: 'monospace',
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#b45309',
+    textAlign: 'center',
+  },
+  tempBillNoticeDesc: {
+    fontFamily: 'monospace',
+    fontSize: 9,
+    color: '#64748b',
+    textAlign: 'center',
   },
   modalActions: {
     flexDirection: 'row',
