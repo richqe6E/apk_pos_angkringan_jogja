@@ -1,0 +1,11 @@
+*.apk
+*.aab
+node_modules/
+.expo/
+dist/
+web-build/
+reference-sia-offline/
+android/app/build/
+android/build/
+android/.gradle/
+.gradle/
