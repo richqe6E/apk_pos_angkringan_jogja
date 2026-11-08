@@ -392,7 +392,8 @@ export default function HistoryScreen() {
             size="sm"
             onPress={handleExportPdf}
             loading={isExporting}
-            style={styles.headerBtn}
+            style={[styles.headerBtn, styles.headerOutlineBtn]}
+            textStyle={styles.headerOutlineBtnText}
           />
           <Button
             title="Unduh CSV"
@@ -400,7 +401,8 @@ export default function HistoryScreen() {
             size="sm"
             onPress={handleExportCsv}
             loading={isExporting}
-            style={styles.headerBtn}
+            style={[styles.headerBtn, styles.headerOutlineBtn]}
+            textStyle={styles.headerOutlineBtnText}
           />
         </View>
       </View>
@@ -862,6 +864,14 @@ const styles = StyleSheet.create({
   },
   headerBtn: {
     borderColor: '#ffffff',
+  },
+  headerOutlineBtn: {
+    borderColor: 'rgba(255, 255, 255, 0.6)',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  headerOutlineBtnText: {
+    color: '#ffffff',
+    fontWeight: '700',
   },
   tabNav: {
     flexDirection: 'row',

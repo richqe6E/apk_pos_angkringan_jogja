@@ -34,10 +34,29 @@ export function formatFullIndonesianDate(targetDate: Date | string = new Date())
     'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
   ];
 
-  const d = typeof targetDate === 'string' ? new Date(targetDate.replace(/-/g, '/')) : targetDate;
-  const dayName = days[d.getDay()];
+  let d: Date;
+  if (typeof targetDate === 'string') {
+    const trimmed = targetDate.trim();
+    const parts = trimmed.split('-');
+    if (parts.length === 3) {
+      const y = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      d = new Date(y, m, day);
+    } else {
+      d = new Date(trimmed);
+    }
+  } else {
+    d = targetDate;
+  }
+
+  if (!d || isNaN(d.getTime())) {
+    d = new Date();
+  }
+
+  const dayName = days[d.getDay()] || 'Minggu';
   const dayNum = String(d.getDate()).padStart(2, '0');
-  const monthName = months[d.getMonth()];
+  const monthName = months[d.getMonth()] || 'Januari';
   const year = d.getFullYear();
 
   return `${dayName}, ${dayNum} ${monthName} ${year}`;

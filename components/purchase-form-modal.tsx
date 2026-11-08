@@ -170,7 +170,7 @@ export function PurchaseFormModal({ visible, onClose }: PurchaseFormModalProps) 
           {/* Header */}
           <View style={styles.header}>
             <View>
-              <Text style={styles.title}>Catat Pembelian Bahan / Kulakan</Text>
+              <Text style={styles.title}>Catat Pembelian Bahan</Text>
               <Text style={styles.subtitle}>
                 Pengeluaran kas tunai & buku hutang tempo supplier
               </Text>
@@ -410,6 +410,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     width: '100%',
     maxWidth: 620,
+    height: '85%',
+    minHeight: 460,
     maxHeight: '90%',
     display: 'flex',
   },

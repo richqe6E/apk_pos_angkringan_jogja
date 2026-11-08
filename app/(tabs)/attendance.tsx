@@ -301,62 +301,62 @@ export default function AttendanceScreen() {
                 ]}
               >
                 <View style={styles.staffCardHeader}>
+                  <View style={styles.avatarCircle}>
+                    {att?.check_in_photo ? (
+                      <TouchableOpacity onPress={() => setViewPhotoUri(att.check_in_photo)}>
+                        <Image source={{ uri: att.check_in_photo }} style={styles.avatarPhoto} />
+                      </TouchableOpacity>
+                    ) : (
+                      <Text style={styles.avatarInitial}>
+                        {(emp.name || 'K').charAt(0).toUpperCase()}
+                      </Text>
+                    )}
+                  </View>
+
                   <View style={styles.staffInfo}>
-                    <Text style={styles.staffName}>{emp.name}</Text>
+                    <Text style={styles.staffName} numberOfLines={1}>{emp.name}</Text>
                     <Text style={styles.staffPhone}>{emp.phone || 'Tanpa No. HP'}</Text>
                   </View>
-                  {isCheckedIn ? (
-                    <Badge
-                      label={
-                        att.is_late === 1
-                          ? `Terlambat (${att.late_minutes} mnt)`
+
+                  <Badge
+                    label={
+                      isCheckedIn
+                        ? att.is_late === 1
+                          ? `Terlambat (${att.late_minutes}m)`
                           : 'Tepat Waktu'
-                      }
-                      variant={att.is_late === 1 ? 'danger' : 'success'}
-                    />
-                  ) : (
-                    <Badge label="Belum Absen" variant="warning" />
-                  )}
+                        : 'Belum Absen'
+                    }
+                    variant={isCheckedIn ? (att.is_late === 1 ? 'danger' : 'success') : 'warning'}
+                    size="sm"
+                  />
                 </View>
 
                 {isCheckedIn ? (
                   <View style={styles.attDetailsRow}>
-                    {att.check_in_photo ? (
-                      <TouchableOpacity
-                        onPress={() => setViewPhotoUri(att.check_in_photo)}
-                        style={styles.photoThumbContainer}
-                      >
-                        <Image source={{ uri: att.check_in_photo }} style={styles.photoThumb} />
-                        <Text style={styles.photoThumbText}>Lihat Foto</Text>
-                      </TouchableOpacity>
-                    ) : null}
-
                     <View style={styles.attTimeInfo}>
                       <Text style={styles.timeLabel}>
-                        Masuk:{' '}
-                        <Text style={styles.timeValueBold}>{att.check_in_time} WIB</Text>
+                        Masuk: <Text style={styles.timeValueBold}>{att.check_in_time} WIB</Text>
                       </Text>
                       <Text style={styles.timeLabel}>
                         Pulang:{' '}
                         {att.check_out_time ? (
                           <Text style={styles.timeValueBold}>{att.check_out_time} WIB</Text>
                         ) : (
-                          <Text style={{ color: '#059669', fontWeight: '700' }}>
-                            Sedang Bertugas
-                          </Text>
+                          <Text style={{ color: '#059669', fontWeight: '700' }}>Sedang Bertugas</Text>
                         )}
                       </Text>
                     </View>
 
                     <View style={styles.lockedNotice}>
-                      <Text style={styles.lockedNoticeText}>Terkunci (1x Absen/Hari)</Text>
+                      <Text style={styles.lockedNoticeText}>🔒 Terkunci</Text>
                     </View>
                   </View>
                 ) : (
                   <View style={styles.actionRow}>
                     <Button
-                      title="Ambil Foto & Absen Masuk"
+                      title="📷 Absen Masuk (Foto)"
                       variant="primary"
+                      size="sm"
                       onPress={() => handleStartCheckIn(emp)}
                       style={styles.checkInBtn}
                     />
@@ -723,6 +723,7 @@ export default function AttendanceScreen() {
               setEmployeeModalVisible(true);
             }}
             style={styles.addEmpBtnHeader}
+            textStyle={styles.addEmpBtnHeaderText}
           />
         </View>
       </View>
@@ -857,8 +858,12 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   addEmpBtnHeader: {
-    borderColor: '#ffffff',
-    backgroundColor: 'transparent',
+    borderColor: 'rgba(255, 255, 255, 0.6)',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  addEmpBtnHeaderText: {
+    color: '#ffffff',
+    fontWeight: '700',
   },
   tabNav: {
     flexDirection: 'row',
@@ -964,6 +969,8 @@ const styles = StyleSheet.create({
   staffCard: {
     width: '48.8%',
     padding: 14,
+    borderRadius: 10,
+    backgroundColor: '#ffffff',
   },
   staffCardCheckedIn: {
     borderLeftWidth: 4,
@@ -976,8 +983,30 @@ const styles = StyleSheet.create({
   staffCardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 10,
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  avatarCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: Colors.primarySoft,
+    borderWidth: 1,
+    borderColor: '#a7f3d0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+    overflow: 'hidden',
+  },
+  avatarPhoto: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+  },
+  avatarInitial: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: Colors.primaryDark,
   },
   staffInfo: {
     flex: 1,

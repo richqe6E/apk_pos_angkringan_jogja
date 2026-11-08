@@ -111,32 +111,71 @@ export default function SettingsScreen() {
   };
 
   // QRIS Handlers
-  const handlePickQrisImage = async () => {
-    try {
-      setIsPickingQris(true);
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsEditing: false,
-        quality: 0.85,
-      });
+  const processAndSaveQris = async (selectedUri: string) => {
+    const savedUri = await saveImageLocally(selectedUri, 'logo');
+    await withSqliteRetry(() =>
+      db.runAsync(
+        "INSERT OR REPLACE INTO settings (key, value) VALUES ('qris_image_path', ?)",
+        [savedUri]
+      )
+    );
+    setQrisImagePath(savedUri);
+    Alert.alert('Sukses', 'Foto QRIS toko berhasil disimpan dan siap ditampilkan di layar kasir.');
+  };
 
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const selectedUri = result.assets[0].uri;
-        const savedUri = await saveImageLocally(selectedUri, 'logo');
-        await withSqliteRetry(() =>
-          db.runAsync(
-            "INSERT OR REPLACE INTO settings (key, value) VALUES ('qris_image_path', ?)",
-            [savedUri]
-          )
-        );
-        setQrisImagePath(savedUri);
-        Alert.alert('Sukses', 'Foto QRIS toko berhasil disimpan dan siap ditampilkan di layar kasir.');
-      }
-    } catch (err: any) {
-      Alert.alert('Gagal Memilih Foto', err?.message || 'Terjadi kesalahan saat memilih foto QRIS.');
-    } finally {
-      setIsPickingQris(false);
-    }
+  const handlePickQrisImage = async () => {
+    Alert.alert('Foto QRIS Toko', 'Pilih sumber gambar barcode QRIS:', [
+      {
+        text: 'Buka Kamera',
+        onPress: async () => {
+          try {
+            const perm = await ImagePicker.requestCameraPermissionsAsync();
+            if (!perm.granted) {
+              Alert.alert('Izin Ditolak', 'Izin kamera diperlukan untuk memotret barcode QRIS.');
+              return;
+            }
+            setIsPickingQris(true);
+            const res = await ImagePicker.launchCameraAsync({
+              quality: 0.85,
+              allowsEditing: false,
+            });
+            if (!res.canceled && res.assets && res.assets.length > 0) {
+              await processAndSaveQris(res.assets[0].uri);
+            }
+          } catch (err: any) {
+            Alert.alert('Gagal Memotret', err?.message || 'Terjadi kesalahan saat memotret QRIS.');
+          } finally {
+            setIsPickingQris(false);
+          }
+        },
+      },
+      {
+        text: 'Pilih dari Galeri',
+        onPress: async () => {
+          try {
+            const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (!perm.granted) {
+              Alert.alert('Izin Ditolak', 'Izin galeri diperlukan untuk memilih foto QRIS.');
+              return;
+            }
+            setIsPickingQris(true);
+            const res = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ['images'],
+              allowsEditing: false,
+              quality: 0.85,
+            });
+            if (!res.canceled && res.assets && res.assets.length > 0) {
+              await processAndSaveQris(res.assets[0].uri);
+            }
+          } catch (err: any) {
+            Alert.alert('Gagal Memilih Foto', err?.message || 'Terjadi kesalahan saat memilih foto QRIS.');
+          } finally {
+            setIsPickingQris(false);
+          }
+        },
+      },
+      { text: 'Batal', style: 'cancel' },
+    ]);
   };
 
   const handleDeleteQrisImage = () => {

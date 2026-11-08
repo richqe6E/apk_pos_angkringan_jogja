@@ -105,7 +105,8 @@ export default function CustomersScreen() {
             variant="outline"
             size="sm"
             onPress={() => setTierModalVisible(true)}
-            style={styles.headerActionBtn}
+            style={[styles.headerActionBtn, styles.headerOutlineBtn]}
+            textStyle={styles.headerOutlineBtnText}
           />
           <Button
             title="+ Tambah Pelanggan"
@@ -297,6 +298,14 @@ const styles = StyleSheet.create({
   },
   headerActionBtn: {
     borderColor: '#ffffff',
+  },
+  headerOutlineBtn: {
+    borderColor: 'rgba(255, 255, 255, 0.6)',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  headerOutlineBtnText: {
+    color: '#ffffff',
+    fontWeight: '700',
   },
   searchBarContainer: {
     padding: 16,

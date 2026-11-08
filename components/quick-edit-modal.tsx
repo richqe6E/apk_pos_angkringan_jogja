@@ -180,18 +180,6 @@ export function QuickEditModal({
             </View>
           </View>
 
-          {/* Opsi Edit Lengkap */}
-          {onOpenFullEdit && (
-            <TouchableOpacity
-              style={styles.fullEditLink}
-              onPress={() => {
-                onClose();
-                onOpenFullEdit();
-              }}
-            >
-              <Text style={styles.fullEditText}>⚙️ Buka Form Lengkap (Kategori, Foto, Barcode)</Text>
-            </TouchableOpacity>
-          )}
 
           {/* Actions */}
           <View style={styles.actionRow}>

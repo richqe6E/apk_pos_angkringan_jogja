@@ -319,6 +319,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     width: '100%',
     maxWidth: 620,
+    height: '85%',
+    minHeight: 460,
     maxHeight: '90%',
     display: 'flex',
   },

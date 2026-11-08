@@ -335,7 +335,7 @@ export default function PurchasesScreen() {
             <Text style={styles.backBtnText}>← Kembali</Text>
           </TouchableOpacity>
           <View style={{ marginLeft: 12 }}>
-            <Text style={styles.headerTitle}>Supplier & Pembelian Bahan (Kulakan)</Text>
+            <Text style={styles.headerTitle}>Supplier & Pembelian Bahan</Text>
             <Text style={styles.headerSubtitle}>
               Pencatatan Belanja Tunai & Manajemen Hutang Tempo Toko
             </Text>
@@ -351,7 +351,8 @@ export default function PurchasesScreen() {
               setEditingSupplier(null);
               setSupplierModalVisible(true);
             }}
-            style={styles.headerBtn}
+            style={[styles.headerBtn, styles.headerOutlineBtn]}
+            textStyle={styles.headerOutlineBtnText}
           />
           <Button
             title="+ Catat Pembelian"
@@ -399,7 +400,7 @@ export default function PurchasesScreen() {
           onPress={() => setActiveTab('purchases')}
         >
           <Text style={[styles.tabText, activeTab === 'purchases' && styles.tabTextActive]}>
-            Riwayat Pembelian & Kulakan
+            Riwayat Pembelian
           </Text>
         </TouchableOpacity>
 
@@ -507,6 +508,14 @@ const styles = StyleSheet.create({
   },
   headerBtn: {
     borderColor: '#ffffff',
+  },
+  headerOutlineBtn: {
+    borderColor: 'rgba(255, 255, 255, 0.6)',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  headerOutlineBtnText: {
+    color: '#ffffff',
+    fontWeight: '700',
   },
   metricsRow: {
     flexDirection: 'row',

@@ -94,7 +94,8 @@ export default function ExploreMenuScreen() {
             variant="outline"
             size="sm"
             onPress={() => setCategoryModalVisible(true)}
-            style={styles.headerBtn}
+            style={[styles.headerBtn, styles.headerOutlineBtn]}
+            textStyle={styles.headerOutlineBtnText}
           />
           <Button
             title="+ Menu Baru"
@@ -281,6 +282,14 @@ const styles = StyleSheet.create({
   },
   headerBtn: {
     borderColor: '#ffffff',
+  },
+  headerOutlineBtn: {
+    borderColor: 'rgba(255, 255, 255, 0.6)',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  headerOutlineBtnText: {
+    color: '#ffffff',
+    fontWeight: '700',
   },
   topControlBar: {
     padding: 12,

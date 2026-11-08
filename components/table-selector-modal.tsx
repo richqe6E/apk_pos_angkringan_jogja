@@ -24,7 +24,7 @@ import { ReceiptPreviewModal } from './receipt-preview-modal';
 export interface CustomTable {
   id: string;
   name: string;
-  type: 'meja' | 'lesehan' | 'other';
+  type?: string;
 }
 
 export const DEFAULT_PRESET_TABLES: CustomTable[] = [
@@ -69,9 +69,9 @@ export function parseCustomTables(jsonString: string | null | undefined): Custom
         };
       }
       const rawName = String(item.name || `Meja ${idx + 1}`).trim();
-      const type: 'meja' | 'lesehan' | 'other' =
-        item.type === 'meja' || item.type === 'lesehan' || item.type === 'other'
-          ? item.type
+      const type: string =
+        item.type !== undefined && item.type !== null && String(item.type).trim() !== ''
+          ? String(item.type).trim()
           : detectTableType(rawName);
       return {
         id: String(item.id || `t_${idx + 1}`),
@@ -122,7 +122,7 @@ export function TableSelectorModal({ visible, onClose }: TableSelectorModalProps
 
   const [activeTab, setActiveTab] = useState<'pilih' | 'pending' | 'gabung'>('pilih');
   const [tables, setTables] = useState<CustomTable[]>(DEFAULT_PRESET_TABLES);
-  const [categoryFilter, setCategoryFilter] = useState<'all' | 'meja' | 'lesehan' | 'occupied'>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [isManageMode, setIsManageMode] = useState(false);
 
   // Form Tambah / Edit Meja
@@ -130,7 +130,7 @@ export function TableSelectorModal({ visible, onClose }: TableSelectorModalProps
   const [isEditingTable, setIsEditingTable] = useState(false);
   const [formTableId, setFormTableId] = useState('');
   const [formTableName, setFormTableName] = useState('');
-  const [formTableType, setFormTableType] = useState<'meja' | 'lesehan' | 'other'>('meja');
+  const [formTableType, setFormTableType] = useState<string>('');
   const [isSavingTable, setIsSavingTable] = useState(false);
 
   const [customTable, setCustomTable] = useState('');
@@ -176,7 +176,7 @@ export function TableSelectorModal({ visible, onClose }: TableSelectorModalProps
     setIsEditingTable(false);
     setFormTableId('');
     setFormTableName('');
-    setFormTableType('meja');
+    setFormTableType('');
     setTableFormVisible(true);
   };
 
@@ -184,7 +184,7 @@ export function TableSelectorModal({ visible, onClose }: TableSelectorModalProps
     setIsEditingTable(true);
     setFormTableId(t.id);
     setFormTableName(t.name);
-    setFormTableType(t.type);
+    setFormTableType(t.type || '');
     setTableFormVisible(true);
   };
 
@@ -395,16 +395,18 @@ export function TableSelectorModal({ visible, onClose }: TableSelectorModalProps
 
   // Kalkulasi filter & badge counter
   const allCount = tables.length;
-  const mejaCount = tables.filter((t) => t.type === 'meja').length;
-  const lesehanCount = tables.filter((t) => t.type === 'lesehan').length;
   const occupiedCount = pendingOrders.length;
+  const uniqueTypes = Array.from(
+    new Set(
+      tables
+        .map((t) => (t.type ? t.type.trim() : ''))
+        .filter((typ) => typ.length > 0)
+    )
+  );
 
   const getFilteredTables = (): CustomTable[] => {
-    if (categoryFilter === 'meja') {
-      return tables.filter((t) => t.type === 'meja');
-    }
-    if (categoryFilter === 'lesehan') {
-      return tables.filter((t) => t.type === 'lesehan');
+    if (categoryFilter === 'all') {
+      return tables;
     }
     if (categoryFilter === 'occupied') {
       const matched = tables.filter((t) =>
@@ -422,7 +424,9 @@ export function TableSelectorModal({ visible, onClose }: TableSelectorModalProps
       });
       return matched;
     }
-    return tables;
+    return tables.filter(
+      (t) => (t.type || '').trim().toLowerCase() === categoryFilter.toLowerCase()
+    );
   };
 
   const filteredTables = getFilteredTables();
@@ -510,36 +514,25 @@ export function TableSelectorModal({ visible, onClose }: TableSelectorModalProps
                   </Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={[styles.filterPill, categoryFilter === 'meja' && styles.filterPillActive]}
-                  onPress={() => setCategoryFilter('meja')}
-                >
-                  <Text
-                    style={[
-                      styles.filterPillText,
-                      categoryFilter === 'meja' && styles.filterPillTextActive,
-                    ]}
-                  >
-                    Meja Reguler ({mejaCount})
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.filterPill,
-                    categoryFilter === 'lesehan' && styles.filterPillActive,
-                  ]}
-                  onPress={() => setCategoryFilter('lesehan')}
-                >
-                  <Text
-                    style={[
-                      styles.filterPillText,
-                      categoryFilter === 'lesehan' && styles.filterPillTextActive,
-                    ]}
-                  >
-                    Lesehan ({lesehanCount})
-                  </Text>
-                </TouchableOpacity>
+                {uniqueTypes.map((typ) => {
+                  const count = tables.filter(
+                    (t) => (t.type || '').trim().toLowerCase() === typ.toLowerCase()
+                  ).length;
+                  const isActive = categoryFilter.toLowerCase() === typ.toLowerCase();
+                  return (
+                    <TouchableOpacity
+                      key={typ}
+                      style={[styles.filterPill, isActive && styles.filterPillActive]}
+                      onPress={() => setCategoryFilter(typ)}
+                    >
+                      <Text
+                        style={[styles.filterPillText, isActive && styles.filterPillTextActive]}
+                      >
+                        {typ} ({count})
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
 
                 <TouchableOpacity
                   style={[
@@ -811,12 +804,7 @@ export function TableSelectorModal({ visible, onClose }: TableSelectorModalProps
                   <TextInput
                     style={styles.formInput}
                     value={formTableName}
-                    onChangeText={(text) => {
-                      setFormTableName(text);
-                      if (!isEditingTable) {
-                        setFormTableType(detectTableType(text));
-                      }
-                    }}
+                    onChangeText={setFormTableName}
                     placeholder="Contoh: Meja 11, Lesehan 06, Gazebo VIP"
                     placeholderTextColor={Colors.placeholder}
                     autoFocus
@@ -824,59 +812,14 @@ export function TableSelectorModal({ visible, onClose }: TableSelectorModalProps
                 </View>
 
                 <View style={styles.formGroup}>
-                  <Text style={styles.formLabel}>Tipe Meja</Text>
-                  <View style={styles.typeSelectorRow}>
-                    <TouchableOpacity
-                      style={[
-                        styles.typeChip,
-                        formTableType === 'meja' && styles.typeChipActive,
-                      ]}
-                      onPress={() => setFormTableType('meja')}
-                    >
-                      <Text
-                        style={[
-                          styles.typeChipText,
-                          formTableType === 'meja' && styles.typeChipTextActive,
-                        ]}
-                      >
-                        Meja Reguler
-                      </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[
-                        styles.typeChip,
-                        formTableType === 'lesehan' && styles.typeChipActive,
-                      ]}
-                      onPress={() => setFormTableType('lesehan')}
-                    >
-                      <Text
-                        style={[
-                          styles.typeChipText,
-                          formTableType === 'lesehan' && styles.typeChipTextActive,
-                        ]}
-                      >
-                        Lesehan
-                      </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[
-                        styles.typeChip,
-                        formTableType === 'other' && styles.typeChipActive,
-                      ]}
-                      onPress={() => setFormTableType('other')}
-                    >
-                      <Text
-                        style={[
-                          styles.typeChipText,
-                          formTableType === 'other' && styles.typeChipTextActive,
-                        ]}
-                      >
-                        Lainnya / VIP
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
+                  <Text style={styles.formLabel}>Tipe / Area Meja (Opsional / Bebas)</Text>
+                  <TextInput
+                    style={styles.formInput}
+                    value={formTableType}
+                    onChangeText={setFormTableType}
+                    placeholder="Contoh: Lesehan, Outdoor, VIP, Lantai 2..."
+                    placeholderTextColor={Colors.placeholder}
+                  />
                 </View>
 
                 {isEditingTable && (
