@@ -15,7 +15,7 @@ import {
 import { useSQLiteContext } from 'expo-sqlite';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
-import * as ImagePicker from 'expo-image-picker';
+import { pickImageFromGallery, takePhotoFromCamera } from '../../utils/imagePickerHelper';
 import { Colors } from '../../constants/theme';
 import { RealtimeClockBadge } from '../../components/realtime-clock-badge';
 import { Card } from '../../components/ui/card';
@@ -123,55 +123,38 @@ export default function SettingsScreen() {
     Alert.alert('Sukses', 'Foto QRIS toko berhasil disimpan dan siap ditampilkan di layar kasir.');
   };
 
-  const handlePickQrisImage = async () => {
+  const handlePickQrisImage = () => {
     Alert.alert('Foto QRIS Toko', 'Pilih sumber gambar barcode QRIS:', [
       {
         text: 'Buka Kamera',
-        onPress: async () => {
-          try {
-            const perm = await ImagePicker.requestCameraPermissionsAsync();
-            if (!perm.granted) {
-              Alert.alert('Izin Ditolak', 'Izin kamera diperlukan untuk memotret barcode QRIS.');
-              return;
-            }
+        onPress: () => {
+          setTimeout(async () => {
             setIsPickingQris(true);
-            const res = await ImagePicker.launchCameraAsync({
-              quality: 0.85,
-              allowsEditing: false,
-            });
-            if (!res.canceled && res.assets && res.assets.length > 0) {
-              await processAndSaveQris(res.assets[0].uri);
+            try {
+              const uri = await takePhotoFromCamera();
+              if (uri) {
+                await processAndSaveQris(uri);
+              }
+            } finally {
+              setIsPickingQris(false);
             }
-          } catch (err: any) {
-            Alert.alert('Gagal Memotret', err?.message || 'Terjadi kesalahan saat memotret QRIS.');
-          } finally {
-            setIsPickingQris(false);
-          }
+          }, 150);
         },
       },
       {
         text: 'Pilih dari Galeri',
-        onPress: async () => {
-          try {
-            const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-            if (!perm.granted) {
-              Alert.alert('Izin Ditolak', 'Izin galeri diperlukan untuk memilih foto QRIS.');
-              return;
-            }
+        onPress: () => {
+          setTimeout(async () => {
             setIsPickingQris(true);
-            const res = await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ['images'],
-              allowsEditing: false,
-              quality: 0.85,
-            });
-            if (!res.canceled && res.assets && res.assets.length > 0) {
-              await processAndSaveQris(res.assets[0].uri);
+            try {
+              const uri = await pickImageFromGallery();
+              if (uri) {
+                await processAndSaveQris(uri);
+              }
+            } finally {
+              setIsPickingQris(false);
             }
-          } catch (err: any) {
-            Alert.alert('Gagal Memilih Foto', err?.message || 'Terjadi kesalahan saat memilih foto QRIS.');
-          } finally {
-            setIsPickingQris(false);
-          }
+          }, 150);
         },
       },
       { text: 'Batal', style: 'cancel' },

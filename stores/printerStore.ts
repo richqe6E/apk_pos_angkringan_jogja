@@ -1,7 +1,8 @@
 import { create } from 'zustand';
-import { Platform } from 'react-native';
+import { Platform, Alert } from 'react-native';
 import { BluetoothManager } from '@vardrz/react-native-bluetooth-escpos-printer';
 import { SQLiteDatabase, withSqliteRetry } from '../services/database';
+import { ensureBluetoothPermissions } from '../services/bluetoothPermissions';
 
 export interface BluetoothDeviceItem {
   name: string;
@@ -126,6 +127,17 @@ export const usePrinterStore = create<PrinterState>((set, get) => ({
 
   scanDevices: async () => {
     if (Platform.OS !== 'android') return;
+
+    const hasPermission = await ensureBluetoothPermissions();
+    if (!hasPermission) {
+      Alert.alert(
+        'Izin Bluetooth Dibutuhkan',
+        'Aplikasi memerlukan izin Bluetooth dan Lokasi untuk mendeteksi printer thermal di sekitar.'
+      );
+      set({ isScanning: false });
+      return;
+    }
+
     set({ isScanning: true });
     try {
       // Pastikan bluetooth aktif

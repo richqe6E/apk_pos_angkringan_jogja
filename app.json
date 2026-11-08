@@ -62,7 +62,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Izinkan POS Angkringan mengakses kamera untuk absensi wajah karyawan dan memindai barcode."
+          "cameraPermission": "Izinkan POS Angkringan mengakses kamera untuk absensi wajah karyawan dan foto menu produk."
         }
       ],
       [

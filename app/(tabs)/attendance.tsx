@@ -239,7 +239,7 @@ export default function AttendanceScreen() {
       <Card style={styles.summaryCard}>
         <View style={styles.summaryTop}>
           <View>
-            <Text style={styles.summaryLabel}>TANGGAL OPERASIONAL ANGKRIKAN</Text>
+            <Text style={styles.summaryLabel}>TANGGAL OPERASIONAL ANGKRINGAN</Text>
             <Text style={styles.summaryDate}>{formatFullIndonesianDate(businessDate)}</Text>
             <Text style={styles.summaryNote}>Patokan Jam Masuk: 17.30 WIB (Melebihi = Terlambat otomatis)</Text>
           </View>
@@ -256,17 +256,17 @@ export default function AttendanceScreen() {
             <Text style={styles.statNumber}>{totalActive}</Text>
             <Text style={styles.statTitle}>Total Karyawan</Text>
           </View>
-          <View style={[styles.statBox, { borderColor: Colors.primary }]}>
-            <Text style={[styles.statNumber, { color: Colors.primary }]}>{presentCount}</Text>
-            <Text style={styles.statTitle}>Hadir Hari Ini</Text>
+          <View style={[styles.statBox, { borderColor: '#10b981', backgroundColor: '#f0fdf4' }]}>
+            <Text style={[styles.statNumber, { color: '#059669' }]}>{presentCount}</Text>
+            <Text style={[styles.statTitle, { color: '#047857' }]}>Hadir Hari Ini</Text>
           </View>
-          <View style={[styles.statBox, { borderColor: '#d97706' }]}>
+          <View style={[styles.statBox, { borderColor: '#f59e0b', backgroundColor: '#fffbeb' }]}>
             <Text style={[styles.statNumber, { color: '#d97706' }]}>{absentCount}</Text>
-            <Text style={styles.statTitle}>Belum Hadir</Text>
+            <Text style={[styles.statTitle, { color: '#b45309' }]}>Belum Hadir</Text>
           </View>
-          <View style={[styles.statBox, { borderColor: Colors.danger }]}>
-            <Text style={[styles.statNumber, { color: Colors.danger }]}>{lateCount}</Text>
-            <Text style={styles.statTitle}>Terlambat</Text>
+          <View style={[styles.statBox, { borderColor: '#ef4444', backgroundColor: '#fef2f2' }]}>
+            <Text style={[styles.statNumber, { color: '#dc2626' }]}>{lateCount}</Text>
+            <Text style={[styles.statTitle, { color: '#b91c1c' }]}>Terlambat</Text>
           </View>
         </View>
       </Card>
@@ -900,6 +900,11 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   summaryCard: {
+    padding: 18,
+    borderRadius: 12,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
     marginBottom: 16,
   },
   summaryTop: {
@@ -907,29 +912,29 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-    paddingBottom: 14,
-    marginBottom: 14,
+    borderBottomColor: '#f1f5f9',
+    paddingBottom: 16,
+    marginBottom: 16,
   },
   summaryLabel: {
     fontSize: 11,
     fontWeight: '800',
     color: Colors.textMuted,
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
   },
   summaryDate: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '800',
-    color: Colors.text,
-    marginTop: 2,
+    color: '#0f172a',
+    marginTop: 4,
   },
   summaryNote: {
     fontSize: 12,
-    color: Colors.textMuted,
-    marginTop: 2,
+    color: Colors.textSecondary,
+    marginTop: 4,
   },
   closeSessionBtn: {
-    minWidth: 180,
+    minWidth: 190,
   },
   statGrid: {
     flexDirection: 'row',
@@ -937,11 +942,12 @@ const styles = StyleSheet.create({
   },
   statBox: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: '#f8fafc',
     borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: 8,
-    padding: 12,
+    borderColor: '#e2e8f0',
+    borderRadius: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
     alignItems: 'center',
   },
   statNumber: {
@@ -953,7 +959,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: Colors.textMuted,
-    marginTop: 2,
+    marginTop: 4,
   },
   sectionHeaderTitle: {
     fontSize: 16,

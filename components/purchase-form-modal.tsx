@@ -12,7 +12,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
+import { pickImageFromGallery, takePhotoFromCamera } from '../utils/imagePickerHelper';
 import { useSQLiteContext } from 'expo-sqlite';
 import { Colors } from '../constants/theme';
 import { Button } from './ui/button';
@@ -76,40 +76,28 @@ export function PurchaseFormModal({ visible, onClose }: PurchaseFormModalProps) 
     }
   };
 
-  const handlePickImage = async () => {
+  const handlePickImage = () => {
     Alert.alert('Foto Bukti Nota', 'Pilih sumber gambar nota pembelian:', [
       {
         text: 'Buka Kamera',
-        onPress: async () => {
-          const perm = await ImagePicker.requestCameraPermissionsAsync();
-          if (!perm.granted) {
-            Alert.alert('Izin Ditolak', 'Izin kamera diperlukan untuk mengambil foto nota.');
-            return;
-          }
-          const res = await ImagePicker.launchCameraAsync({
-            quality: 0.7,
-            allowsEditing: false,
-          });
-          if (!res.canceled && res.assets && res.assets.length > 0) {
-            setPhotoUri(res.assets[0].uri);
-          }
+        onPress: () => {
+          setTimeout(async () => {
+            const uri = await takePhotoFromCamera();
+            if (uri) {
+              setPhotoUri(uri);
+            }
+          }, 150);
         },
       },
       {
         text: 'Pilih dari Galeri',
-        onPress: async () => {
-          const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-          if (!perm.granted) {
-            Alert.alert('Izin Ditolak', 'Izin galeri diperlukan untuk memilih foto nota.');
-            return;
-          }
-          const res = await ImagePicker.launchImageLibraryAsync({
-            quality: 0.7,
-            allowsEditing: false,
-          });
-          if (!res.canceled && res.assets && res.assets.length > 0) {
-            setPhotoUri(res.assets[0].uri);
-          }
+        onPress: () => {
+          setTimeout(async () => {
+            const uri = await pickImageFromGallery();
+            if (uri) {
+              setPhotoUri(uri);
+            }
+          }, 150);
         },
       },
       { text: 'Batal', style: 'cancel' },
