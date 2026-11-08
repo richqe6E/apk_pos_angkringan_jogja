@@ -650,7 +650,7 @@ export default function AttendanceScreen() {
           <Card style={styles.employeeRowCard}>
             <View>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Text style={styles.historyEmpName}>{item.name}</Text>
+                <Text style={styles.staffName}>{item.name}</Text>
                 <Badge
                   label={item.is_active === 1 ? 'Aktif' : 'Nonaktif'}
                   variant={item.is_active === 1 ? 'success' : 'neutral'}

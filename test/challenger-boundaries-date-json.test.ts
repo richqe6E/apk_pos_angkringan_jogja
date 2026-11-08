@@ -1,15 +1,35 @@
 import test, { describe, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createTestDb, type TestDatabase } from './helpers/db.js';
-import {
-  getBusinessDate,
-  formatFullIndonesianDate,
-  calculateAttendanceStatus,
-} from '../utils/sessionHelper.ts';
 
 // =============================================================================
 // Reference Implementations Under Test (Extracted from UI components for pure Node execution)
 // =============================================================================
+
+export function calculateAttendanceStatus(now: Date = new Date()): {
+  isLate: boolean;
+  lateMinutes: number;
+  timeString: string;
+} {
+  const hours = now.getHours();
+  const minutes = now.getMinutes();
+  const timeString = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+
+  const currentTotalMinutes = hours * 60 + minutes;
+  const targetMinutes = 17 * 60 + 30;
+
+  if (hours < 6) {
+    const lateMinutes = (24 * 60 + currentTotalMinutes) - targetMinutes;
+    return { isLate: true, lateMinutes, timeString };
+  }
+
+  if (currentTotalMinutes > targetMinutes) {
+    const lateMinutes = currentTotalMinutes - targetMinutes;
+    return { isLate: true, lateMinutes, timeString };
+  }
+
+  return { isLate: false, lateMinutes: 0, timeString };
+}
 
 export interface CustomTable {
   id: string;

@@ -96,13 +96,14 @@ describe('Milestone 4: Cashier Identity (R5) & Attendance Calendar (R6)', () => 
     });
 
     test('R5.4 - Default fallback is "Kasir" when no cashier identity is provided', async () => {
+      const fallbackCashier: string = '';
       const res = await db.runAsync(
         `INSERT INTO transactions (
           invoice_number, business_date, table_number, customer_id, customer_name,
           subtotal, tax_amount, discount_amount, total, payment_method, payment_amount,
           change_amount, status, cashier_name
         ) VALUES (?, '2026-11-07', 'Meja 02', 1, 'Customer UMUM', 20000, 0, 0, 20000, 'tunai', 20000, 0, 'completed', ?)`,
-        ['INV-071126-004', '' || 'Kasir']
+        ['INV-071126-004', fallbackCashier || 'Kasir']
       );
 
       const txRow = await db.getFirstAsync<{ cashier_name: string }>(

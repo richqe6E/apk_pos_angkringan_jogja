@@ -445,8 +445,9 @@ export function MenuFormModal({ visible, menuItem, onClose }: MenuFormModalProps
               style={{ flex: menuItem ? 1.5 : 1 }}
             />
           </View>
-        </KeyboardAvoidingView>
-      </View>
+        </View>
+      </KeyboardAvoidingView>
+    </View>
 
       {/* Android-native Category Form Dialog */}
       <CategoryFormModal

@@ -191,9 +191,9 @@ describe('Challenger 1: Operational Stress & Edge Case Test Suite', () => {
         "SELECT COUNT(*) as count FROM transactions WHERE table_number = ? AND status IN ('pending', 'billing')",
         [tableName]
       );
-      assert.equal(guardCheckPending?.count, 1);
-      const canDeleteWhilePending = (guardCheckPending?.count ?? 0) === 0;
+      const canDeleteWhilePending = ((guardCheckPending?.count as any) === 0);
       assert.equal(canDeleteWhilePending, false, 'Deletion must be strictly blocked when active pending order exists');
+      assert.equal(guardCheckPending?.count, 1);
 
       // 3. Change status to billing
       await db.runAsync("UPDATE transactions SET status = 'billing' WHERE invoice_number = 'INV-DEL-01'");
@@ -201,9 +201,9 @@ describe('Challenger 1: Operational Stress & Edge Case Test Suite', () => {
         "SELECT COUNT(*) as count FROM transactions WHERE table_number = ? AND status IN ('pending', 'billing')",
         [tableName]
       );
-      assert.equal(guardCheckBilling?.count, 1);
-      const canDeleteWhileBilling = (guardCheckBilling?.count ?? 0) === 0;
+      const canDeleteWhileBilling = ((guardCheckBilling?.count as any) === 0);
       assert.equal(canDeleteWhileBilling, false, 'Deletion must be strictly blocked when order is in billing status');
+      assert.equal(guardCheckBilling?.count, 1);
 
       // 4. Settle / Complete the order
       await db.runAsync("UPDATE transactions SET status = 'completed', payment_amount = 15000 WHERE invoice_number = 'INV-DEL-01'");

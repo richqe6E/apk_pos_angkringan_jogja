@@ -200,6 +200,9 @@ const styles = StyleSheet.create({
     color: '#4b5563',
   },
   body: {
+    maxHeight: 450,
+  },
+  bodyContent: {
     padding: 18,
     gap: 16,
   },
