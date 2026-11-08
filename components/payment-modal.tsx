@@ -366,7 +366,7 @@ export function PaymentModal({ visible, onClose, onSuccess }: PaymentModalProps)
                 {qrisImagePath ? (
                   <View style={styles.qrisActiveCard}>
                     <View style={styles.qrisHeaderRow}>
-                      <Badge label="📱 QRIS STATIS RESMI" variant="info" size="sm" />
+                      <Badge label="QRIS STATIS RESMI" variant="info" size="sm" />
                       <Text style={styles.qrisStoreLabel}>{storeName}</Text>
                     </View>
 
@@ -457,7 +457,7 @@ export function PaymentModal({ visible, onClose, onSuccess }: PaymentModalProps)
                               size="sm"
                             />
                             {isSelected && (
-                              <Badge label="✓ Terpilih" variant="success" size="sm" />
+                              <Badge label="Terpilih" variant="success" size="sm" />
                             )}
                           </View>
 
@@ -560,7 +560,8 @@ export function PaymentModal({ visible, onClose, onSuccess }: PaymentModalProps)
               onPress={() => setQrisFullScreenVisible(false)}
               style={styles.fullScreenCloseBtn}
             >
-              <Text style={styles.fullScreenCloseBtnText}>✕ Tutup</Text>
+              <AppIcon name="close" size={16} color="#ffffff" style={{ marginRight: 4 }} />
+              <Text style={styles.fullScreenCloseBtnText}>Tutup</Text>
             </TouchableOpacity>
           </View>
 

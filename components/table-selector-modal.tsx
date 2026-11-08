@@ -745,7 +745,7 @@ export function TableSelectorModal({ visible, onClose }: TableSelectorModalProps
                         onPress={() => toggleMergeSelection(order.id)}
                       >
                         <View style={[styles.checkbox, isSelected && styles.checkboxActive]}>
-                          {isSelected && <Text style={styles.checkMark}>✓</Text>}
+                          {isSelected && <AppIcon name="check" size={14} color="#ffffff" />}
                         </View>
                         <View style={{ flex: 1, marginLeft: 12 }}>
                           <Text style={styles.pendingTableName}>{order.table_number}</Text>

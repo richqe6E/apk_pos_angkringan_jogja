@@ -14,6 +14,7 @@ import { Colors } from '../../constants/theme';
 import { Card } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
+import { AppIcon } from '../../components/ui/app-icon';
 import { formatRupiahDisplay } from '../../utils/formatRupiah';
 import {
   useFinancialStore,
@@ -530,25 +531,29 @@ export default function FinancialScreen() {
       <View style={styles.paymentBreakdownBar}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.paymentBreakdownScroll}>
           <View style={styles.payChip}>
-            <Text style={styles.payChipLabel}>💵 Tunai (Cash):</Text>
+            <AppIcon name="cash" size={13} color="#059669" />
+            <Text style={styles.payChipLabel}>Tunai (Cash):</Text>
             <Text style={[styles.payChipVal, { color: '#059669' }]}>
               {formatRupiahDisplay(summary.salesTunai || 0)}
             </Text>
           </View>
           <View style={styles.payChip}>
-            <Text style={styles.payChipLabel}>📱 QRIS:</Text>
+            <AppIcon name="qris" size={13} color="#2563eb" />
+            <Text style={styles.payChipLabel}>QRIS:</Text>
             <Text style={[styles.payChipVal, { color: '#2563eb' }]}>
               {formatRupiahDisplay(summary.salesQris || 0)}
             </Text>
           </View>
           <View style={styles.payChip}>
-            <Text style={styles.payChipLabel}>🏦 Transfer:</Text>
+            <AppIcon name="bank" size={13} color="#7c3aed" />
+            <Text style={styles.payChipLabel}>Transfer:</Text>
             <Text style={[styles.payChipVal, { color: '#7c3aed' }]}>
               {formatRupiahDisplay(summary.salesTransfer || 0)}
             </Text>
           </View>
           <View style={styles.payChip}>
-            <Text style={styles.payChipLabel}>📊 Total Omset:</Text>
+            <AppIcon name="financial" size={13} color={Colors.primary} />
+            <Text style={styles.payChipLabel}>Total Omzet:</Text>
             <Text style={[styles.payChipVal, { color: Colors.primary }]}>
               {formatRupiahDisplay(summary.totalGrossSales)}
             </Text>

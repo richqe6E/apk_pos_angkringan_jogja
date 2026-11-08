@@ -186,7 +186,7 @@ export function CustomerSelectorModal({ visible, onClose }: CustomerSelectorModa
                         )}
                       </View>
                       {isSelected && (
-                        <Text style={styles.selectedCheck}>Terpilih ✓</Text>
+                        <Badge label="Terpilih" variant="success" size="sm" />
                       )}
                     </TouchableOpacity>
                   );

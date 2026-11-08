@@ -12,6 +12,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { Colors } from '../constants/theme';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
+import { AppIcon } from './ui/app-icon';
 
 interface AdminPinModalProps {
   visible: boolean;
@@ -74,7 +75,7 @@ export function AdminPinModal({
         <Card style={styles.modalCard}>
           <View style={styles.header}>
             <View style={styles.iconCircle}>
-              <Text style={{ fontSize: 24 }}>🔐</Text>
+              <AppIcon name="lock" size={24} color={Colors.primary} />
             </View>
             <Text style={styles.title}>{title}</Text>
             <Text style={styles.description}>{description}</Text>

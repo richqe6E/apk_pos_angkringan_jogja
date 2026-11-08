@@ -11,6 +11,7 @@ import {
 import { useSQLiteContext } from 'expo-sqlite';
 import { Colors } from '../constants/theme';
 import { Button } from './ui/button';
+import { ModalHeader } from './ui/modal-header';
 import { Customer, useCustomerStore } from '../stores/customerStore';
 
 interface CustomerFormModalProps {
@@ -64,15 +65,12 @@ export function CustomerFormModal({ visible, customer, onClose }: CustomerFormMo
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View style={styles.modalBox}>
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.title}>
-              {customer ? 'Edit Data Pelanggan' : '+ Tambah Pelanggan Baru'}
-            </Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Text style={styles.closeBtnText}>✕</Text>
-            </TouchableOpacity>
-          </View>
+          <ModalHeader
+            title={customer ? 'Edit Data Pelanggan' : 'Tambah Pelanggan Baru'}
+            subtitle="Profil anggota & akumulasi program reward"
+            icon="person"
+            onClose={onClose}
+          />
 
           {/* Form */}
           <View style={styles.body}>
@@ -127,9 +125,10 @@ const styles = StyleSheet.create({
   },
   modalBox: {
     backgroundColor: '#ffffff',
-    borderRadius: 8,
+    borderRadius: 12,
     width: '100%',
     maxWidth: 480,
+    overflow: 'hidden',
   },
   header: {
     flexDirection: 'row',

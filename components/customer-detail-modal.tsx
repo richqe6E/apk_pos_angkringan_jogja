@@ -119,8 +119,8 @@ export function CustomerDetailModal({
               </Text>
             </View>
 
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Text style={styles.closeBtnText}>✕</Text>
+            <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
+              <AppIcon name="close" size={18} color="#64748b" />
             </TouchableOpacity>
           </View>
 
@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     backgroundColor: '#ffffff',
-    borderRadius: 8,
+    borderRadius: 12,
     width: '100%',
     maxWidth: 620,
     maxHeight: '90%',

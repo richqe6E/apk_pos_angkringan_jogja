@@ -16,6 +16,7 @@ import { Colors } from '../constants/theme';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
+import { ModalHeader } from './ui/modal-header';
 import { formatRupiahDisplay, formatRupiahInput, parseRupiahInput } from '../utils/formatRupiah';
 import { RewardTier, useCustomerStore } from '../stores/customerStore';
 
@@ -141,18 +142,12 @@ export function RewardTierModal({ visible, onClose }: RewardTierModalProps) {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={styles.modalBox}>
-          {/* Header */}
-          <View style={styles.header}>
-            <View>
-              <Text style={styles.title}>Pengaturan Multi-Tier Reward</Text>
-              <Text style={styles.subtitle}>
-                Atur ambang batas akumulasi belanja seumur hidup & hadiah pelanggan
-              </Text>
-            </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Text style={styles.closeBtnText}>✕</Text>
-            </TouchableOpacity>
-          </View>
+          <ModalHeader
+            title="Pengaturan Multi-Tier Reward"
+            subtitle="Ambang batas belanja seumur hidup & hadiah pelanggan"
+            icon="star"
+            onClose={onClose}
+          />
 
           <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent} keyboardShouldPersistTaps="handled">
             {/* Form Tambah / Edit */}
@@ -279,13 +274,14 @@ const styles = StyleSheet.create({
   },
   modalBox: {
     backgroundColor: '#ffffff',
-    borderRadius: 8,
+    borderRadius: 12,
     width: '100%',
     maxWidth: 620,
     height: '85%',
     minHeight: 460,
     maxHeight: '90%',
     display: 'flex',
+    overflow: 'hidden',
   },
   header: {
     flexDirection: 'row',

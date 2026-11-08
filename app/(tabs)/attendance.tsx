@@ -352,13 +352,15 @@ export default function AttendanceScreen() {
                     </View>
 
                     <View style={styles.lockedNotice}>
-                      <Text style={styles.lockedNoticeText}>🔒 Terkunci</Text>
+                      <AppIcon name="lock" size={12} color="#64748b" style={{ marginRight: 4 }} />
+                      <Text style={styles.lockedNoticeText}>Terkunci</Text>
                     </View>
                   </View>
                 ) : (
                   <View style={styles.actionRow}>
                     <Button
-                      title="📷 Absen Masuk (Foto)"
+                      title="Absen Masuk (Foto)"
+                      icon="camera"
                       variant="primary"
                       size="sm"
                       onPress={() => handleStartCheckIn(emp)}
@@ -821,7 +823,8 @@ export default function AttendanceScreen() {
             style={styles.photoCloseBtn}
             onPress={() => setViewPhotoUri(null)}
           >
-            <Text style={styles.photoCloseText}>✕ Tutup</Text>
+            <AppIcon name="close" size={16} color="#ffffff" style={{ marginRight: 4 }} />
+            <Text style={styles.photoCloseText}>Tutup</Text>
           </TouchableOpacity>
           {viewPhotoUri ? (
             <Image

@@ -12,6 +12,8 @@ import {
 import { useSQLiteContext } from 'expo-sqlite';
 import { Colors } from '../constants/theme';
 import { Button } from './ui/button';
+import { ModalHeader } from './ui/modal-header';
+import { AppIcon } from './ui/app-icon';
 import { useMenuStore } from '../stores/menuStore';
 
 interface CategoryFormModalProps {
@@ -76,80 +78,77 @@ export function CategoryFormModal({
     >
       <View style={styles.overlay}>
         <View style={styles.dialogBox}>
-          <View style={styles.dialogHeader}>
-            <View>
-              <Text style={styles.dialogTitle}>Tambah Kategori Baru</Text>
-              <Text style={styles.dialogSubtitle}>
-                Masukkan nama kategori menu (contoh: Nasi Bakar, Wedangan):
-              </Text>
+          <ModalHeader
+            title="Tambah Kategori Baru"
+            subtitle="Kelompokkan menu makanan & minuman"
+            icon="tag"
+            onClose={onClose}
+          />
+
+          <View style={styles.dialogContent}>
+            <View style={styles.dialogBody}>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Nama Kategori..."
+                placeholderTextColor={Colors.textMuted}
+                value={categoryName}
+                onChangeText={setCategoryName}
+                autoFocus
+              />
             </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Text style={styles.closeBtnText}>✕</Text>
-            </TouchableOpacity>
-          </View>
 
-          <View style={styles.dialogBody}>
-            <TextInput
-              style={styles.textInput}
-              placeholder="Nama Kategori..."
-              placeholderTextColor={Colors.textMuted}
-              value={categoryName}
-              onChangeText={setCategoryName}
-              autoFocus
-            />
-          </View>
+            {/* Daftar Kategori Terdaftar */}
+            {categories.length > 0 && (
+              <View style={styles.existingListContainer}>
+                <Text style={styles.existingListTitle}>Kategori Terdaftar ({categories.length}):</Text>
+                <ScrollView style={{ maxHeight: 130 }} showsVerticalScrollIndicator={false}>
+                  <View style={styles.categoryPillsWrap}>
+                    {categories.map((c) => (
+                      <View key={c.id} style={styles.catPillItem}>
+                        <Text style={styles.catPillName}>{c.name}</Text>
+                        <TouchableOpacity
+                          onPress={() => {
+                            Alert.alert(
+                              'Hapus Kategori?',
+                              `Hapus kategori "${c.name}"? Menu dengan kategori ini tidak akan terhapus.`,
+                              [
+                                { text: 'Batal', style: 'cancel' },
+                                {
+                                  text: 'Hapus',
+                                  style: 'destructive',
+                                  onPress: () => deleteCategory(db, c.id),
+                                },
+                              ]
+                            );
+                          }}
+                          style={styles.catPillDelete}
+                        >
+                          <AppIcon name="close" size={12} color="#dc2626" />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                </ScrollView>
+              </View>
+            )}
 
-          {/* Daftar Kategori Terdaftar */}
-          {categories.length > 0 && (
-            <View style={styles.existingListContainer}>
-              <Text style={styles.existingListTitle}>Kategori Terdaftar ({categories.length}):</Text>
-              <ScrollView style={{ maxHeight: 130 }} showsVerticalScrollIndicator={false}>
-                <View style={styles.categoryPillsWrap}>
-                  {categories.map((c) => (
-                    <View key={c.id} style={styles.catPillItem}>
-                      <Text style={styles.catPillName}>{c.name}</Text>
-                      <TouchableOpacity
-                        onPress={() => {
-                          Alert.alert(
-                            'Hapus Kategori?',
-                            `Hapus kategori "${c.name}"? Menu dengan kategori ini tidak akan terhapus.`,
-                            [
-                              { text: 'Batal', style: 'cancel' },
-                              {
-                                text: 'Hapus',
-                                style: 'destructive',
-                                onPress: () => deleteCategory(db, c.id),
-                              },
-                            ]
-                          );
-                        }}
-                        style={styles.catPillDelete}
-                      >
-                        <Text style={styles.catPillDeleteText}>✕</Text>
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                </View>
-              </ScrollView>
+            <View style={styles.dialogActions}>
+              <Button
+                title="Batal"
+                variant="outline"
+                size="sm"
+                onPress={onClose}
+                style={{ flex: 1 }}
+              />
+              <Button
+                title="Simpan Kategori"
+                variant="primary"
+                size="sm"
+                loading={isSubmitting}
+                onPress={handleSave}
+                style={{ flex: 1 }}
+              />
             </View>
-          )}
-
-          <View style={styles.dialogActions}>
-            <Button
-              title="Batal"
-              variant="outline"
-              size="sm"
-              onPress={onClose}
-              style={{ flex: 1 }}
-            />
-            <Button
-              title="Simpan Kategori"
-              variant="primary"
-              size="sm"
-              loading={isSubmitting}
-              onPress={handleSave}
-              style={{ flex: 1 }}
-            />
           </View>
         </View>
       </View>
@@ -167,14 +166,17 @@ const styles = StyleSheet.create({
   },
   dialogBox: {
     backgroundColor: '#ffffff',
-    borderRadius: 8,
+    borderRadius: 12,
     width: '100%',
     maxWidth: 440,
-    padding: 20,
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOpacity: 0.1,
     shadowRadius: 10,
     elevation: 4,
+  },
+  dialogContent: {
+    padding: 20,
   },
   dialogHeader: {
     flexDirection: 'row',

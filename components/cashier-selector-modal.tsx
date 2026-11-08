@@ -152,10 +152,15 @@ export function CashierSelectorModal({ visible, onClose }: CashierSelectorModalP
                           {isSelected && <Badge label="Terpilih" variant="success" size="sm" />}
                         </View>
                         <Text style={styles.empPhone}>
-                          {emp.phone ? `📱 ${emp.phone}` : 'Staf Angkringan Jogja'}
+                          {emp.phone ? emp.phone : 'Staf Angkringan Jogja'}
                         </Text>
                       </View>
-                      <Text style={styles.selectArrow}>➔</Text>
+                      <AppIcon
+                        name="chevron-down"
+                        size={16}
+                        color={isSelected ? Colors.primary : Colors.textMuted}
+                        style={{ transform: [{ rotate: '-90deg' }] }}
+                      />
                     </TouchableOpacity>
                   );
                 })}

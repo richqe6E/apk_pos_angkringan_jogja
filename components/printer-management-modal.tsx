@@ -260,7 +260,8 @@ export function PrinterManagementModal({ visible, onClose }: PrinterManagementMo
             <View style={styles.scanSectionHeader}>
               <Text style={styles.sectionTitle}>Perangkat Bluetooth Tersedia</Text>
               <Button
-                title={isScanning ? 'Memindai...' : '🔍 Pindai Bluetooth'}
+                title={isScanning ? 'Memindai...' : 'Pindai Bluetooth'}
+                icon="search"
                 variant="primary"
                 size="sm"
                 loading={isScanning}
@@ -291,13 +292,13 @@ export function PrinterManagementModal({ visible, onClose }: PrinterManagementMo
 
                       <View style={{ flexDirection: 'row', gap: 6 }}>
                         <Button
-                          title={isCashier ? 'Kasir ✓' : '+ Kasir'}
+                          title={isCashier ? 'Kasir Aktif' : '+ Pilih Kasir'}
                           variant={isCashier ? 'primary' : 'outline'}
                           size="sm"
                           onPress={() => handleAssignCashier(device)}
                         />
                         <Button
-                          title={isKitchen ? 'Dapur ✓' : '+ Dapur'}
+                          title={isKitchen ? 'Dapur Aktif' : '+ Pilih Dapur'}
                           variant={isKitchen ? 'primary' : 'outline'}
                           size="sm"
                           onPress={() => handleAssignKitchen(device)}
