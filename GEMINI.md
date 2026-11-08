@@ -4,6 +4,7 @@
 @.agents/rules/systematic-debugging.md
 @.agents/rules/verification-before-completion.md
 @.agents/rules/test-driven-development.md
+@.agents/rules/frontend-design.md
 
 ## Core Project Guidelines
 - **Offline-First & Data Integrity**: SQLite transactions must be atomic. Never alter financial ledger logic without running full reconciliation tests (`npm test`).
