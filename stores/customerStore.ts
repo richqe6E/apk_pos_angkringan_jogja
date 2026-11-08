@@ -8,6 +8,17 @@ export interface RewardTier {
   reward_description: string;
 }
 
+export interface RewardClaim {
+  id: number;
+  customer_id: number;
+  reward_id: number | null;
+  tier_name: string;
+  reward_description: string;
+  claimed_at: string;
+  claimed_by: string;
+  notes?: string;
+}
+
 export interface Customer {
   id: number;
   name: string;
@@ -18,6 +29,10 @@ export interface Customer {
   current_tier?: RewardTier | null;
   next_tier?: RewardTier | null;
   spend_to_next?: number;
+  top_favorite_item?: { menu_name: string; total_qty: number } | null;
+  is_reward_claimed?: boolean;
+  last_claimed_at?: string | null;
+  claim_history?: RewardClaim[];
 }
 
 export interface CustomerFavoriteItem {
@@ -64,6 +79,15 @@ interface CustomerState {
 
   getCustomerFavorites: (db: SQLiteDatabase, customerId: number) => Promise<CustomerFavoriteItem[]>;
   getCustomerHistory: (db: SQLiteDatabase, customerId: number) => Promise<CustomerTransactionHistory[]>;
+  claimReward: (
+    db: SQLiteDatabase,
+    customerId: number,
+    tier: RewardTier,
+    claimedBy?: string,
+    notes?: string
+  ) => Promise<number>;
+  undoClaimReward: (db: SQLiteDatabase, claimId: number) => Promise<void>;
+  getCustomerClaims: (db: SQLiteDatabase, customerId: number) => Promise<RewardClaim[]>;
 }
 
 export const useCustomerStore = create<CustomerState>((set, get) => ({
@@ -93,6 +117,43 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
         db.getAllAsync<Customer>('SELECT * FROM customers ORDER BY total_spent DESC, id ASC')
       );
 
+      // Ambil seluruh klaim reward
+      let claims: RewardClaim[] = [];
+      try {
+        const claimRows = await withSqliteRetry(() =>
+          db.getAllAsync<RewardClaim>(
+            'SELECT * FROM customer_reward_claims ORDER BY claimed_at DESC, id DESC'
+          )
+        );
+        claims = claimRows || [];
+      } catch (e) {
+        console.warn('Notice loading customer_reward_claims:', e);
+      }
+
+      // Ambil makanan paling sering dibeli untuk masing-masing customer
+      const topFavMap = new Map<number, { menu_name: string; total_qty: number }>();
+      try {
+        const topFavRows = await withSqliteRetry(() =>
+          db.getAllAsync<{ customer_id: number; menu_name: string; total_qty: number }>(
+            `SELECT customer_id, menu_name, total_qty
+             FROM (
+               SELECT t.customer_id, ti.menu_name, SUM(ti.qty) AS total_qty,
+                      ROW_NUMBER() OVER (PARTITION BY t.customer_id ORDER BY SUM(ti.qty) DESC, ti.menu_name ASC) as rn
+               FROM transaction_items ti
+               JOIN transactions t ON ti.transaction_id = t.id
+               WHERE t.status = 'completed' AND t.customer_id > 1
+               GROUP BY t.customer_id, ti.menu_name
+             )
+             WHERE rn = 1`
+          )
+        );
+        (topFavRows || []).forEach((r) => {
+          topFavMap.set(r.customer_id, { menu_name: r.menu_name, total_qty: r.total_qty });
+        });
+      } catch (favErr) {
+        console.warn('Notice loading top favorite menu:', favErr);
+      }
+
       // Urutkan tier descending untuk evaluasi tier tertinggi
       const descTiers = [...tiers].sort((a, b) => b.min_spend - a.min_spend);
       const ascTiers = [...tiers].sort((a, b) => a.min_spend - b.min_spend);
@@ -105,6 +166,10 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
             current_tier: null,
             next_tier: null,
             spend_to_next: 0,
+            top_favorite_item: null,
+            is_reward_claimed: false,
+            last_claimed_at: null,
+            claim_history: [],
           };
         }
 
@@ -112,11 +177,20 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
         const nextTier = ascTiers.find((t) => t.min_spend > c.total_spent) || null;
         const spendToNext = nextTier ? Math.max(0, nextTier.min_spend - c.total_spent) : 0;
 
+        const custClaims = claims.filter((cl) => cl.customer_id === c.id);
+        const matchedClaim = currentTier
+          ? custClaims.find((cl) => cl.reward_id === currentTier.id || cl.tier_name === currentTier.tier_name)
+          : null;
+
         return {
           ...c,
           current_tier: currentTier,
           next_tier: nextTier,
           spend_to_next: spendToNext,
+          top_favorite_item: topFavMap.get(c.id) || null,
+          is_reward_claimed: !!matchedClaim,
+          last_claimed_at: matchedClaim ? matchedClaim.claimed_at : null,
+          claim_history: custClaims,
         };
       });
 
@@ -226,6 +300,40 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       return rows || [];
     } catch (err) {
       console.error('Error getting customer history:', err);
+      return [];
+    }
+  },
+
+  claimReward: async (db, customerId, tier, claimedBy = 'Kasir', notes = '') => {
+    const res = await withSqliteRetry(() =>
+      db.runAsync(
+        `INSERT INTO customer_reward_claims (customer_id, reward_id, tier_name, reward_description, claimed_by, notes)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [customerId, tier.id, tier.tier_name, tier.reward_description, claimedBy, notes]
+      )
+    );
+    await get().loadCustomers(db);
+    return res.lastInsertRowId;
+  },
+
+  undoClaimReward: async (db, claimId) => {
+    await withSqliteRetry(() =>
+      db.runAsync('DELETE FROM customer_reward_claims WHERE id = ?', [claimId])
+    );
+    await get().loadCustomers(db);
+  },
+
+  getCustomerClaims: async (db, customerId) => {
+    try {
+      const rows = await withSqliteRetry(() =>
+        db.getAllAsync<RewardClaim>(
+          'SELECT * FROM customer_reward_claims WHERE customer_id = ? ORDER BY claimed_at DESC, id DESC',
+          [customerId]
+        )
+      );
+      return rows || [];
+    } catch (err) {
+      console.error('Error getting customer claims:', err);
       return [];
     }
   },

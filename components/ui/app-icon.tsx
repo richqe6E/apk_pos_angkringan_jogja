@@ -50,6 +50,7 @@ export type AppIconName =
   | 'arrow-back'
   | 'chevron-down'
   | 'star'
+  | 'gift'
   | 'store';
 
 export type AppIconSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | number;
@@ -165,6 +166,8 @@ export function AppIcon({
       return <Ionicons name="chevron-down" size={pixelSize} color={color} style={style} />;
     case 'star':
       return <Ionicons name="star" size={pixelSize} color={color} style={style} />;
+    case 'gift':
+      return <Ionicons name="gift-outline" size={pixelSize} color={color} style={style} />;
     case 'store':
       return <Ionicons name="storefront-outline" size={pixelSize} color={color} style={style} />;
     default:

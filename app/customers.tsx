@@ -25,7 +25,7 @@ import { RewardTierModal } from '../components/reward-tier-modal';
 export default function CustomersScreen() {
   const router = useRouter();
   const db = useSQLiteContext();
-  const { customers, isLoading, loadCustomers, deleteCustomer } = useCustomerStore();
+  const { customers, isLoading, loadCustomers, deleteCustomer, claimReward } = useCustomerStore();
 
   const [search, setSearch] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -77,6 +77,28 @@ export default function CustomersScreen() {
               await deleteCustomer(db, c.id);
             } catch (err: any) {
               Alert.alert('Gagal Hapus', err.message);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleClaimReward = (c: Customer) => {
+    if (!c.current_tier) return;
+    Alert.alert(
+      'Klaim Reward Pelanggan',
+      `Klaim reward "${c.current_tier.reward_description}" untuk pelanggan ${c.name}?\n\nTindakan ini akan mencatat di sistem bahwa reward telah diserahkan.`,
+      [
+        { text: 'Batal', style: 'cancel' },
+        {
+          text: 'Ya, Klaim Reward',
+          onPress: async () => {
+            try {
+              await claimReward(db, c.id, c.current_tier!);
+              Alert.alert('Sukses', `Reward berhasil diklaim untuk ${c.name}.`);
+            } catch (err: any) {
+              Alert.alert('Gagal', err?.message || 'Gagal memproses klaim reward');
             }
           },
         },
@@ -195,12 +217,51 @@ export default function CustomersScreen() {
                         </View>
                       )}
 
+                      {!isGeneral && (
+                        <View style={styles.favoriteRow}>
+                          <AppIcon name="menu" size={13} color={Colors.primary} />
+                          <Text style={styles.favoriteLabel}>Paling Sering Dipesan: </Text>
+                          <Text style={styles.favoriteValue} numberOfLines={1}>
+                            {item.top_favorite_item
+                              ? `${item.top_favorite_item.menu_name} (${item.top_favorite_item.total_qty}x)`
+                              : 'Belum ada riwayat pesanan'}
+                          </Text>
+                        </View>
+                      )}
+
                       {!isGeneral && item.current_tier && (
-                        <View style={styles.rewardNotice}>
-                          <Text style={styles.rewardNoticeLabel}>Hak Reward Saat Ini:</Text>
+                        <View style={[styles.rewardNotice, item.is_reward_claimed && styles.rewardNoticeClaimed]}>
+                          <View style={styles.rewardNoticeHeader}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                              <AppIcon
+                                name={item.is_reward_claimed ? 'check-circle' : 'gift'}
+                                size={14}
+                                color={item.is_reward_claimed ? Colors.success : '#d97706'}
+                              />
+                              <Text style={[styles.rewardNoticeLabel, item.is_reward_claimed && { color: Colors.success }]}>
+                                {item.is_reward_claimed ? 'Reward Sudah Diklaim' : 'Hak Reward Tersedia'}
+                              </Text>
+                            </View>
+                            {item.is_reward_claimed ? (
+                              <Badge label="SUDAH KLAIM" variant="success" size="sm" />
+                            ) : (
+                              <TouchableOpacity
+                                style={styles.claimBtn}
+                                onPress={() => handleClaimReward(item)}
+                              >
+                                <AppIcon name="gift" size={12} color="#ffffff" />
+                                <Text style={styles.claimBtnText}>Klaim Reward</Text>
+                              </TouchableOpacity>
+                            )}
+                          </View>
                           <Text style={styles.rewardNoticeText}>
                             {item.current_tier.reward_description}
                           </Text>
+                          {item.is_reward_claimed && item.last_claimed_at && (
+                            <Text style={styles.claimedAtText}>
+                              Tercatat diklaim pada: {item.last_claimed_at}
+                            </Text>
+                          )}
                         </View>
                       )}
                     </View>
@@ -393,18 +454,70 @@ const styles = StyleSheet.create({
     color: Colors.text,
     marginTop: 2,
   },
+  favoriteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  favoriteLabel: {
+    fontSize: 11,
+    color: Colors.textMuted,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  favoriteValue: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.text,
+  },
   rewardNotice: {
     marginTop: 8,
-    backgroundColor: '#f0fdf4',
-    padding: 8,
+    backgroundColor: '#fef3c7',
+    padding: 10,
     borderRadius: 6,
     borderLeftWidth: 3,
-    borderLeftColor: Colors.primary,
+    borderLeftColor: '#d97706',
+  },
+  rewardNoticeClaimed: {
+    backgroundColor: '#f0fdf4',
+    borderLeftColor: Colors.success,
+  },
+  rewardNoticeHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  claimBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#d97706',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    gap: 4,
+  },
+  claimBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  claimedAtText: {
+    fontSize: 10,
+    color: Colors.textMuted,
+    marginTop: 4,
   },
   rewardNoticeLabel: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '700',
-    color: Colors.primary,
+    color: '#d97706',
   },
   rewardNoticeText: {
     fontSize: 12,

@@ -1,0 +1,145 @@
+export interface SeedCategory {
+  name: string;
+  icon: string;
+}
+
+export interface SeedMenuItem {
+  name: string;
+  price: number;
+  category: string;
+}
+
+export const DEFAULT_CATEGORIES_MD: SeedCategory[] = [
+  { name: 'Minuman Saset', icon: 'cafe-outline' },
+  { name: 'Jahe-Jahe', icon: 'flame-outline' },
+  { name: 'Coffee, Tea & Susu', icon: 'cafe-outline' },
+  { name: 'Mocktail', icon: 'wine-outline' },
+  { name: 'Shisa', icon: 'cloud-outline' },
+  { name: 'Makanan Berat', icon: 'restaurant-outline' },
+  { name: 'Tusukan', icon: 'flame-outline' },
+  { name: 'Snack', icon: 'fast-food-outline' },
+];
+
+export const DEFAULT_MENUS_MD: SeedMenuItem[] = [
+  // 1. Minuman Saset
+  { name: 'Es Batu', price: 2000, category: 'Minuman Saset' },
+  { name: 'Air Putih', price: 2000, category: 'Minuman Saset' },
+  { name: 'Air Es', price: 3000, category: 'Minuman Saset' },
+  { name: 'Chokolatos', price: 8000, category: 'Minuman Saset' },
+  { name: 'Choko Matcha', price: 8000, category: 'Minuman Saset' },
+  { name: 'Nutrisari Jeruk Peras', price: 8000, category: 'Minuman Saset' },
+  { name: 'Nutrisari Lemontea', price: 8000, category: 'Minuman Saset' },
+  { name: 'Mineral', price: 8000, category: 'Minuman Saset' },
+  { name: 'Beng-Beng', price: 8000, category: 'Minuman Saset' },
+  { name: 'Milo', price: 8000, category: 'Minuman Saset' },
+  { name: 'Extrajoss + Susu', price: 8000, category: 'Minuman Saset' },
+
+  // 2. Jahe-Jahe
+  { name: 'Jahe Original', price: 10000, category: 'Jahe-Jahe' },
+  { name: 'Jahe Susu', price: 12000, category: 'Jahe-Jahe' },
+  { name: 'Teh Jahe', price: 12000, category: 'Jahe-Jahe' },
+  { name: 'Kopi Jahe', price: 12000, category: 'Jahe-Jahe' },
+  { name: 'Telur 1/2 Matang (2 Telur)', price: 12000, category: 'Jahe-Jahe' },
+
+  // 3. Coffee, Tea & Susu
+  { name: 'Es Teh', price: 5000, category: 'Coffee, Tea & Susu' },
+  { name: 'Kopi Hitam', price: 8000, category: 'Coffee, Tea & Susu' },
+  { name: 'Kopi Susu', price: 8000, category: 'Coffee, Tea & Susu' },
+  { name: 'Teh Original', price: 8000, category: 'Coffee, Tea & Susu' },
+  { name: 'Teh Susu', price: 8000, category: 'Coffee, Tea & Susu' },
+  { name: 'Jeruk Peras Murni', price: 8000, category: 'Coffee, Tea & Susu' },
+  { name: 'Es Susu', price: 8000, category: 'Coffee, Tea & Susu' },
+
+  // 4. Mocktail (Rp 18.000)
+  { name: 'Taro Choco', price: 18000, category: 'Mocktail' },
+  { name: 'Bubble Gum Choco', price: 18000, category: 'Mocktail' },
+  { name: 'Choco Hazelnut', price: 18000, category: 'Mocktail' },
+  { name: 'Caramel Ice', price: 18000, category: 'Mocktail' },
+  { name: 'Caramel Ice Coffe', price: 18000, category: 'Mocktail' },
+  { name: 'Red Velvet', price: 18000, category: 'Mocktail' },
+  { name: 'Coffe Pandan', price: 18000, category: 'Mocktail' },
+  { name: 'Irish Coffe', price: 18000, category: 'Mocktail' },
+  { name: 'Manggo Yakult', price: 18000, category: 'Mocktail' },
+  { name: 'Manggo Squash', price: 18000, category: 'Mocktail' },
+  { name: 'Lolipop Squash', price: 18000, category: 'Mocktail' },
+  { name: 'Orange Squash', price: 18000, category: 'Mocktail' },
+  { name: 'Strowberry Squash', price: 18000, category: 'Mocktail' },
+  { name: 'Lemon Squash', price: 18000, category: 'Mocktail' },
+  { name: 'Vanila Milkshake', price: 18000, category: 'Mocktail' },
+  { name: 'Strowberry Milkshake', price: 18000, category: 'Mocktail' },
+  { name: 'Manggo Milkshake', price: 18000, category: 'Mocktail' },
+  { name: 'Orange Milkshake', price: 18000, category: 'Mocktail' },
+  { name: 'Soda Gembira', price: 18000, category: 'Mocktail' },
+  { name: 'Lecy Ocean', price: 18000, category: 'Mocktail' },
+  { name: 'Thai Tea', price: 18000, category: 'Mocktail' },
+  { name: 'Baylish Coffe', price: 18000, category: 'Mocktail' },
+
+  // 5. Shisa
+  { name: 'Shisa - Alohanani', price: 0, category: 'Shisa' },
+  { name: 'Shisa - Ice Bubble Gum', price: 0, category: 'Shisa' },
+  { name: 'Shisa - Watermelon', price: 0, category: 'Shisa' },
+  { name: 'Shisa - Blackcurrent', price: 0, category: 'Shisa' },
+  { name: 'Shisa - Peach', price: 0, category: 'Shisa' },
+  { name: 'Shisa - Apple', price: 0, category: 'Shisa' },
+  { name: 'Shisa - Love66', price: 0, category: 'Shisa' },
+  { name: 'Shisa - Monkey Forest', price: 0, category: 'Shisa' },
+  { name: 'Shisa - Frasty Kiwi', price: 0, category: 'Shisa' },
+  { name: 'Shisa - Melon', price: 0, category: 'Shisa' },
+  { name: 'Shisa - Strawberry', price: 0, category: 'Shisa' },
+  { name: 'Bong Kecil', price: 30000, category: 'Shisa' },
+  { name: 'Bong Besar', price: 40000, category: 'Shisa' },
+  { name: 'Shisa - Premium Tambahan', price: 5000, category: 'Shisa' },
+  { name: 'Shisa - Tambah Bara', price: 5000, category: 'Shisa' },
+
+  // 6. Makanan Berat
+  { name: 'Pop Mie', price: 8000, category: 'Makanan Berat' },
+  { name: 'Mie Goreng', price: 8000, category: 'Makanan Berat' },
+  { name: 'Mie Kuah', price: 8000, category: 'Makanan Berat' },
+  { name: 'Mie Goreng Telur', price: 12000, category: 'Makanan Berat' },
+  { name: 'Mie Kuah Telur', price: 12000, category: 'Makanan Berat' },
+  { name: 'Nasi Pecel Telur', price: 15000, category: 'Makanan Berat' },
+  { name: 'Nasi Pecel Ayam', price: 15000, category: 'Makanan Berat' },
+  { name: 'Ayam Geprek', price: 17000, category: 'Makanan Berat' },
+  { name: 'Ayam Lalapan', price: 17000, category: 'Makanan Berat' },
+  { name: 'Ayam Ganja', price: 17000, category: 'Makanan Berat' },
+  { name: 'Ayam Kremes', price: 17000, category: 'Makanan Berat' },
+  { name: 'Nasi Beef Belly', price: 25000, category: 'Makanan Berat' },
+  { name: 'Ayam Ganja Jumbo', price: 25000, category: 'Makanan Berat' },
+  { name: 'Bebek Kremes', price: 35000, category: 'Makanan Berat' },
+  { name: 'Telur Dadar/Ceplok', price: 5000, category: 'Makanan Berat' },
+  { name: 'Nasi', price: 6000, category: 'Makanan Berat' },
+  { name: 'Soto Ayam', price: 15000, category: 'Makanan Berat' },
+  { name: 'Soto Kikil', price: 18000, category: 'Makanan Berat' },
+  { name: 'Chiken Katsu', price: 20000, category: 'Makanan Berat' },
+  { name: 'Sate Taichan', price: 22000, category: 'Makanan Berat' },
+  { name: 'Chiken Wings', price: 23000, category: 'Makanan Berat' },
+
+  // 7. Tusukan
+  { name: 'Sate Paru', price: 5000, category: 'Tusukan' },
+  { name: 'Sate Usus', price: 5000, category: 'Tusukan' },
+  { name: 'Sate Kulit', price: 5000, category: 'Tusukan' },
+  { name: 'Sate Puyuh', price: 5000, category: 'Tusukan' },
+  { name: 'Sate Hati', price: 5000, category: 'Tusukan' },
+  { name: 'Pentol Biasa', price: 5000, category: 'Tusukan' },
+  { name: 'Pentol Rica', price: 5000, category: 'Tusukan' },
+  { name: 'Scalop/Nugget', price: 5000, category: 'Tusukan' },
+  { name: 'Tahu/Tahu Bacem', price: 5000, category: 'Tusukan' },
+  { name: 'Dumpling Putih', price: 7000, category: 'Tusukan' },
+  { name: 'Dumpling Pelangi', price: 7000, category: 'Tusukan' },
+  { name: 'Salmon Ball', price: 7000, category: 'Tusukan' },
+  { name: 'Sosis Bakar', price: 10000, category: 'Tusukan' },
+  { name: 'Otak-Otak', price: 10000, category: 'Tusukan' },
+
+  // 8. Snack
+  { name: 'Tempe Mendoan', price: 15000, category: 'Snack' },
+  { name: 'Tahu Krispi', price: 15000, category: 'Snack' },
+  { name: 'Pisang Keju', price: 17000, category: 'Snack' },
+  { name: 'Pisang Epe', price: 17000, category: 'Snack' },
+  { name: 'Cireng Krispi', price: 17000, category: 'Snack' },
+  { name: 'Jamur Krispi', price: 17000, category: 'Snack' },
+  { name: 'Roti Bakar', price: 15000, category: 'Snack' },
+  { name: 'Tela-Tela', price: 15000, category: 'Snack' },
+  { name: 'Kentang', price: 17000, category: 'Snack' },
+  { name: 'Tahu Bakso', price: 17000, category: 'Snack' },
+  { name: 'Empek-Empek', price: 25000, category: 'Snack' },
+];

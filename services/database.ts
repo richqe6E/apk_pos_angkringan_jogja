@@ -1,4 +1,5 @@
 import * as SQLite from 'expo-sqlite';
+import { DEFAULT_CATEGORIES_MD, DEFAULT_MENUS_MD } from '../constants/defaultMenuData';
 
 export type SQLiteDatabase = SQLite.SQLiteDatabase;
 
@@ -28,6 +29,70 @@ export async function withSqliteRetry<T>(
     }
   }
   throw lastError;
+}
+
+/**
+ * Memastikan tabel customer_reward_claims dan menu bawaan dari menu.md terpasang secara permanen
+ */
+async function applyMenuMdAndRewardClaims(db: SQLiteDatabase): Promise<void> {
+  // 1. Buat tabel customer_reward_claims jika belum ada
+  try {
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS customer_reward_claims (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+        reward_id INTEGER REFERENCES rewards(id) ON DELETE SET NULL,
+        tier_name TEXT NOT NULL,
+        reward_description TEXT NOT NULL,
+        claimed_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+        claimed_by TEXT NOT NULL DEFAULT 'Kasir',
+        notes TEXT DEFAULT ''
+      );
+    `);
+  } catch (err) {
+    console.warn('Notice creating customer_reward_claims:', err);
+  }
+
+  // 2. Seeding Menu Bawaan menu.md (HANYA SEKALI SEUMUR HIDUP DATABASE)
+  try {
+    const seedMenuMdRow = await db.getFirstAsync<{ value: string }>(
+      "SELECT value FROM settings WHERE key = 'seed_menu_md_applied'"
+    );
+
+    if (seedMenuMdRow?.value !== '1') {
+      // Pastikan kategori dari menu.md terdaftar
+      for (const cat of DEFAULT_CATEGORIES_MD) {
+        await db.runAsync(
+          'INSERT OR IGNORE INTO categories (name, icon) VALUES (?, ?)',
+          [cat.name, cat.icon]
+        );
+      }
+
+      // Ambil ID kategori terdaftar
+      const catRows = await db.getAllAsync<{ id: number; name: string }>(
+        'SELECT id, name FROM categories'
+      );
+      const catMap = new Map<string, number>();
+      (catRows || []).forEach((c) => catMap.set(c.name, c.id));
+
+      // Masukkan menu bawaan dari menu.md tanpa duplikasi
+      for (const m of DEFAULT_MENUS_MD) {
+        const catId = catMap.get(m.category) || null;
+        await db.runAsync(
+          `INSERT INTO menus (name, price, category_id, track_stock, stock, is_active)
+           SELECT ?, ?, ?, 0, 0, 1
+           WHERE NOT EXISTS (SELECT 1 FROM menus WHERE name = ?)`,
+          [m.name, m.price, catId, m.name]
+        );
+      }
+
+      await db.runAsync(
+        "INSERT OR REPLACE INTO settings (key, value) VALUES ('seed_menu_md_applied', '1')"
+      );
+    }
+  } catch (seedErr) {
+    console.warn('Notice seeding menu.md menus:', seedErr);
+  }
 }
 
 /**
@@ -66,6 +131,7 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase): Promise<void> {
     const currentVersion = versionRow?.user_version ?? 0;
 
     if (currentVersion >= DATABASE_VERSION) {
+      await applyMenuMdAndRewardClaims(db);
       return;
     }
 
@@ -316,6 +382,9 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase): Promise<void> {
       }
       await db.runAsync("INSERT OR REPLACE INTO settings (key, value) VALUES ('seed_menus_applied', '1')");
     }
+
+    // Terapkan Seeding Menu Bawaan menu.md & tabel customer_reward_claims
+    await applyMenuMdAndRewardClaims(db);
 
     // Set Database Version ke 1 secara eksplisit via runAsync di luar multi-statement string
     await db.runAsync('PRAGMA user_version = 1');

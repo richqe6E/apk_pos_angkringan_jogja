@@ -7,12 +7,14 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 import { Colors } from '../constants/theme';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
+import { AppIcon } from './ui/app-icon';
 import { formatRupiahDisplay } from '../utils/formatRupiah';
 import {
   Customer,
@@ -35,7 +37,7 @@ export function CustomerDetailModal({
   onEdit,
 }: CustomerDetailModalProps) {
   const db = useSQLiteContext();
-  const { getCustomerFavorites, getCustomerHistory } = useCustomerStore();
+  const { getCustomerFavorites, getCustomerHistory, claimReward } = useCustomerStore();
 
   const [favorites, setFavorites] = useState<CustomerFavoriteItem[]>([]);
   const [history, setHistory] = useState<CustomerTransactionHistory[]>([]);
@@ -64,6 +66,28 @@ export function CustomerDetailModal({
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleClaim = () => {
+    if (!customer || !customer.current_tier) return;
+    Alert.alert(
+      'Klaim Reward Pelanggan',
+      `Klaim reward "${customer.current_tier.reward_description}" untuk pelanggan ${customer.name}?\n\nTindakan ini akan mencatat di sistem bahwa reward telah diserahkan ke pelanggan.`,
+      [
+        { text: 'Batal', style: 'cancel' },
+        {
+          text: 'Ya, Klaim Reward',
+          onPress: async () => {
+            try {
+              await claimReward(db, customer.id, customer.current_tier!);
+              Alert.alert('Sukses', `Reward berhasil diklaim untuk ${customer.name}.`);
+            } catch (err: any) {
+              Alert.alert('Gagal', err?.message || 'Gagal memproses klaim reward');
+            }
+          },
+        },
+      ]
+    );
   };
 
   if (!customer) return null;
@@ -121,18 +145,63 @@ export function CustomerDetailModal({
             {/* Reward Information Box */}
             {!isGeneralCustomer && (
               <Card style={styles.rewardCard}>
-                <Text style={styles.sectionTitle}>Status Program Reward</Text>
+                <View style={styles.rewardHeaderRow}>
+                  <Text style={styles.sectionTitle}>Status Program Reward</Text>
+                  {customer.current_tier && (
+                    <Badge
+                      label={customer.is_reward_claimed ? '✓ SUDAH DIKLAIM' : 'BELUM DIKLAIM'}
+                      variant={customer.is_reward_claimed ? 'success' : 'warning'}
+                      size="sm"
+                    />
+                  )}
+                </View>
+
                 {customer.current_tier ? (
-                  <View style={styles.currentTierBox}>
-                    <Text style={styles.currentTierLabel}>Reward yang Berhak Diklaim:</Text>
-                    <Text style={styles.currentTierDesc}>
-                      {customer.current_tier.reward_description}
-                    </Text>
+                  <View style={[styles.currentTierBox, customer.is_reward_claimed && styles.currentTierBoxClaimed]}>
+                    <View style={styles.tierStatusRow}>
+                      <View style={{ flex: 1, marginRight: 8 }}>
+                        <Text style={styles.currentTierLabel}>
+                          {customer.is_reward_claimed ? 'Reward Telah Diklaim:' : 'Reward yang Berhak Diklaim:'}
+                        </Text>
+                        <Text style={styles.currentTierDesc}>
+                          {customer.current_tier.reward_description}
+                        </Text>
+                      </View>
+                      {!customer.is_reward_claimed && (
+                        <TouchableOpacity style={styles.modalClaimBtn} onPress={handleClaim}>
+                          <AppIcon name="gift" size={14} color="#ffffff" />
+                          <Text style={styles.modalClaimBtnText}>Klaim Reward</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                    {customer.is_reward_claimed && customer.last_claimed_at && (
+                      <View style={styles.claimedMetaBox}>
+                        <AppIcon name="check-circle" size={14} color={Colors.success} />
+                        <Text style={styles.claimedMetaText}>
+                          Tercatat diserahkan pada: {customer.last_claimed_at}
+                        </Text>
+                      </View>
+                    )}
                   </View>
                 ) : (
                   <Text style={styles.noRewardText}>
                     Belum mencapai batas ambang reward pertama.
                   </Text>
+                )}
+
+                {customer.claim_history && customer.claim_history.length > 0 && (
+                  <View style={styles.claimHistoryContainer}>
+                    <Text style={styles.claimHistoryTitle}>Riwayat Klaim Reward:</Text>
+                    {customer.claim_history.map((ch) => (
+                      <View key={ch.id} style={styles.claimHistoryRow}>
+                        <AppIcon name="receipt" size={12} color={Colors.textMuted} />
+                        <Text style={styles.claimHistoryDesc} numberOfLines={1}>
+                          {ch.tier_name} ({ch.reward_description})
+                        </Text>
+                        <Text style={styles.claimHistoryTime}>{ch.claimed_at}</Text>
+                      </View>
+                    ))}
+                  </View>
                 )}
 
                 {customer.next_tier && (
@@ -159,7 +228,10 @@ export function CustomerDetailModal({
             {/* Favorite Items */}
             {!isGeneralCustomer && (
               <Card style={styles.sectionCard}>
-                <Text style={styles.sectionTitle}>Menu Angkringan Favorit</Text>
+                <View style={styles.sectionTitleRow}>
+                  <Text style={styles.sectionTitle}>Menu Paling Sering Dibeli</Text>
+                  <Badge label="Top 5 Favorit" variant="neutral" size="sm" />
+                </View>
                 {isLoading ? (
                   <ActivityIndicator size="small" color={Colors.primary} />
                 ) : favorites.length === 0 ? (
@@ -167,11 +239,11 @@ export function CustomerDetailModal({
                 ) : (
                   favorites.map((fav, idx) => (
                     <View key={idx} style={styles.favRow}>
-                      <Text style={styles.favRank}>#{idx + 1}</Text>
+                      <Text style={[styles.favRank, idx === 0 && styles.favRankTop]}>#{idx + 1}</Text>
                       <View style={{ flex: 1 }}>
                         <Text style={styles.favName}>{fav.menu_name}</Text>
                         <Text style={styles.favSub}>
-                          Total Dipesan: {fav.total_qty} porsi ({formatRupiahDisplay(fav.total_amount)})
+                          Total Dipesan: <Text style={{ fontWeight: '700' }}>{fav.total_qty} porsi</Text> ({formatRupiahDisplay(fav.total_amount)})
                         </Text>
                       </View>
                     </View>
@@ -314,6 +386,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#bbf7d0',
   },
+  rewardHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   sectionCard: {
     padding: 14,
   },
@@ -325,14 +409,18 @@ const styles = StyleSheet.create({
   },
   currentTierBox: {
     backgroundColor: '#ffffff',
-    padding: 10,
+    padding: 12,
     borderRadius: 6,
     borderLeftWidth: 4,
-    borderLeftColor: Colors.primary,
+    borderLeftColor: '#d97706',
+  },
+  currentTierBoxClaimed: {
+    borderLeftColor: Colors.success,
+    backgroundColor: '#f0fdf4',
   },
   currentTierLabel: {
     fontSize: 12,
-    color: Colors.primary,
+    color: '#d97706',
     fontWeight: '700',
   },
   currentTierDesc: {
@@ -340,6 +428,69 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.text,
     marginTop: 2,
+  },
+  tierStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  modalClaimBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#d97706',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    gap: 4,
+  },
+  modalClaimBtnText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  claimedMetaBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+  },
+  claimedMetaText: {
+    fontSize: 11,
+    color: Colors.success,
+    fontWeight: '600',
+  },
+  claimHistoryContainer: {
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#dcfce7',
+  },
+  claimHistoryTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.textMuted,
+    marginBottom: 4,
+  },
+  claimHistoryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 3,
+    gap: 6,
+  },
+  claimHistoryDesc: {
+    flex: 1,
+    fontSize: 11,
+    color: Colors.text,
+  },
+  claimHistoryTime: {
+    fontSize: 10,
+    color: Colors.textMuted,
+  },
+  favRankTop: {
+    color: '#d97706',
   },
   noRewardText: {
     fontSize: 13,

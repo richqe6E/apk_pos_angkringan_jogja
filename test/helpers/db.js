@@ -131,6 +131,18 @@ export function createTestDb() {
       reward_description TEXT NOT NULL
     );
 
+    -- 11b. Klaim Reward Customer
+    CREATE TABLE IF NOT EXISTS customer_reward_claims (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+      reward_id INTEGER REFERENCES rewards(id) ON DELETE SET NULL,
+      tier_name TEXT NOT NULL,
+      reward_description TEXT NOT NULL,
+      claimed_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+      claimed_by TEXT NOT NULL DEFAULT 'Kasir',
+      notes TEXT DEFAULT ''
+    );
+
     -- 12. Master Supplier
     CREATE TABLE IF NOT EXISTS suppliers (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
