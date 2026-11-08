@@ -16,6 +16,8 @@ import { usePrinterStore, BluetoothDeviceItem } from '../stores/printerStore';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
+import { AppIcon } from './ui/app-icon';
+import { ModalHeader } from './ui/modal-header';
 import {
   ensureBluetoothPermissions,
   printCustomerReceipt,
@@ -143,18 +145,13 @@ export function PrinterManagementModal({ visible, onClose }: PrinterManagementMo
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.overlay}>
         <Card style={styles.modalCard}>
-          {/* Header */}
-          <View style={styles.modalHeader}>
-            <View>
-              <Text style={styles.title}>Pengaturan Multi-Printer Bluetooth</Text>
-              <Text style={styles.subtitle}>
-                Hubungkan printer thermal kasir & dapur secara terpisah
-              </Text>
-            </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Text style={styles.closeText}>✕</Text>
-            </TouchableOpacity>
-          </View>
+          {/* Header Modal Modern */}
+          <ModalHeader
+            title="Pengaturan Multi-Printer Bluetooth"
+            subtitle="Hubungkan printer thermal kasir & dapur secara terpisah"
+            icon="print"
+            onClose={onClose}
+          />
 
           <ScrollView style={{ maxHeight: 440 }}>
             {/* 1. Status Printer Aktif */}
@@ -162,7 +159,10 @@ export function PrinterManagementModal({ visible, onClose }: PrinterManagementMo
               {/* Box Printer Kasir */}
               <View style={[styles.printerBox, cashierPrinter && styles.printerBoxActive]}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Text style={styles.printerBoxTitle}>🧾 Printer Kasir / Nota</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <AppIcon name="print" size={15} color={Colors.primary} />
+                    <Text style={styles.printerBoxTitle}>Printer Kasir</Text>
+                  </View>
                   <Badge label={cashierPrinter ? 'Terpasang' : 'Kosong'} variant={cashierPrinter ? 'success' : 'neutral'} size="sm" />
                 </View>
                 <Text style={styles.printerBoxName} numberOfLines={1}>
@@ -192,7 +192,10 @@ export function PrinterManagementModal({ visible, onClose }: PrinterManagementMo
               {/* Box Printer Dapur */}
               <View style={[styles.printerBox, kitchenPrinter && styles.printerBoxActive]}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Text style={styles.printerBoxTitle}>🍳 Printer Kitchen / Dapur</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <AppIcon name="print" size={15} color={Colors.warning} />
+                    <Text style={styles.printerBoxTitle}>Printer Dapur</Text>
+                  </View>
                   <Badge label={kitchenPrinter ? 'Terpasang' : 'Kosong'} variant={kitchenPrinter ? 'success' : 'neutral'} size="sm" />
                 </View>
                 <Text style={styles.printerBoxName} numberOfLines={1}>

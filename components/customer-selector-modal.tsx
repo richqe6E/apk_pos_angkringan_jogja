@@ -16,6 +16,8 @@ import { withSqliteRetry } from '../services/database';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
+import { AppIcon } from './ui/app-icon';
+import { ModalHeader } from './ui/modal-header';
 import { formatRupiahDisplay } from '../utils/formatRupiah';
 
 interface CustomerRecord {
@@ -124,18 +126,13 @@ export function CustomerSelectorModal({ visible, onClose }: CustomerSelectorModa
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.overlay}>
         <Card style={styles.modalCard}>
-          {/* Header */}
-          <View style={styles.modalHeader}>
-            <View>
-              <Text style={styles.title}>Pilih Pelanggan / Member</Text>
-              <Text style={styles.subtitle}>
-                Akumulasi belanja seumur hidup & pemenuhan hadiah reward
-              </Text>
-            </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Text style={styles.closeText}>✕</Text>
-            </TouchableOpacity>
-          </View>
+          {/* Header Modal Modern */}
+          <ModalHeader
+            title="Pilih Pelanggan / Member"
+            subtitle="Akumulasi belanja seumur hidup & pemenuhan hadiah reward"
+            icon="people"
+            onClose={onClose}
+          />
 
           {!showAddForm ? (
             <>

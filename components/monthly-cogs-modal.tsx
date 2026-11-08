@@ -15,6 +15,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { Colors } from '../constants/theme';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
+import { ModalHeader } from './ui/modal-header';
 import { formatRupiahDisplay, formatRupiahInput, parseRupiahInput } from '../utils/formatRupiah';
 import { useFinancialStore } from '../stores/financialStore';
 
@@ -76,24 +77,19 @@ export function MonthlyCogsModal({ visible, onClose }: MonthlyCogsModalProps) {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={styles.modalBox}>
-          {/* Header */}
-          <View style={styles.header}>
-            <View>
-              <Text style={styles.title}>Input HPP Global Bulanan (Owner)</Text>
-              <Text style={styles.subtitle}>
-                Periode Bulan: {selectedMonth} (Konsep HPP Fleksibel Angkringan)
-              </Text>
-            </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Text style={styles.closeBtnText}>✕</Text>
-            </TouchableOpacity>
-          </View>
+          {/* Header Modal Modern */}
+          <ModalHeader
+            title="Input HPP Global Bulanan (Owner)"
+            subtitle={`Periode Bulan: ${selectedMonth} (Konsep HPP Fleksibel Angkringan)`}
+            icon="financial"
+            onClose={onClose}
+          />
 
           {/* Body */}
           <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent} keyboardShouldPersistTaps="handled">
             {/* Guide Card Opsi A */}
             <Card style={styles.guideCard}>
-              <Text style={styles.guideTitle}>💡 Petunjuk Perhitungan HPP Opsi A:</Text>
+              <Text style={styles.guideTitle}>Petunjuk Perhitungan HPP Opsi A:</Text>
               <Text style={styles.guideText}>
                 Karena resep angkringan sangat bervariasi dan dinamis, pemilik cukup memasukkan total
                 belanja bahan baku yang terpakai selama 1 bulan penuh:

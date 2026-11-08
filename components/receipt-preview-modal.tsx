@@ -12,6 +12,8 @@ import { Colors } from '../constants/theme';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
+import { AppIcon } from './ui/app-icon';
+import { ModalHeader } from './ui/modal-header';
 import { formatRupiahDisplay } from '../utils/formatRupiah';
 import {
   PrintReceiptData,
@@ -79,16 +81,13 @@ export function ReceiptPreviewModal({ visible, data, initialTab = 'customer', on
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.overlay}>
         <Card style={styles.modalCard}>
-          {/* Header */}
-          <View style={styles.modalHeader}>
-            <View>
-              <Text style={styles.title}>Pratinjau Kertas Struk Thermal (58mm)</Text>
-              <Text style={styles.subtitle}>Format cetak kertas Bluetooth printer kasir & dapur</Text>
-            </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Text style={styles.closeText}>✕</Text>
-            </TouchableOpacity>
-          </View>
+          {/* Header Modal Modern */}
+          <ModalHeader
+            title="Pratinjau Kertas Struk Thermal (58mm)"
+            subtitle="Format cetak kertas Bluetooth printer kasir & dapur"
+            icon="receipt"
+            onClose={onClose}
+          />
 
           {/* Segmented Switch Struk Customer vs Tiket Dapur vs Tagihan Sementara */}
           <View style={styles.tabBar}>
@@ -97,7 +96,7 @@ export function ReceiptPreviewModal({ visible, data, initialTab = 'customer', on
               onPress={() => setPreviewTab('customer')}
             >
               <Text style={[styles.tabText, previewTab === 'customer' && styles.tabTextActive]}>
-                🧾 Struk Kasir
+                Struk Kasir
               </Text>
             </TouchableOpacity>
 
@@ -106,7 +105,7 @@ export function ReceiptPreviewModal({ visible, data, initialTab = 'customer', on
               onPress={() => setPreviewTab('kitchen')}
             >
               <Text style={[styles.tabText, previewTab === 'kitchen' && styles.tabTextActive]}>
-                🍳 Dapur {hasAdditional ? '(+) ' : ''}
+                Dapur {hasAdditional ? '(+) ' : ''}
               </Text>
             </TouchableOpacity>
 
@@ -115,7 +114,7 @@ export function ReceiptPreviewModal({ visible, data, initialTab = 'customer', on
               onPress={() => setPreviewTab('temp_bill')}
             >
               <Text style={[styles.tabText, previewTab === 'temp_bill' && styles.tabTextActive]}>
-                📋 Tagihan Sementara
+                Tagihan Sementara
               </Text>
             </TouchableOpacity>
           </View>

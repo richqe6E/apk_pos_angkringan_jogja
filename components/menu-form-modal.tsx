@@ -17,6 +17,8 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { Colors } from '../constants/theme';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
+import { AppIcon } from './ui/app-icon';
+import { ModalHeader } from './ui/modal-header';
 import { formatRupiahDisplay, formatRupiahInput, parseRupiahInput } from '../utils/formatRupiah';
 import { MenuItem, useMenuStore } from '../stores/menuStore';
 import { saveImageLocally } from '../utils/imageStorage';
@@ -198,15 +200,12 @@ export function MenuFormModal({ visible, menuItem, onClose }: MenuFormModalProps
           style={styles.keyboardAvoid}
         >
           <View style={styles.modalBox}>
-            {/* Header */}
-            <View style={styles.header}>
-              <Text style={styles.title}>
-                {menuItem ? 'Edit Menu Angkringan' : '+ Tambah Menu Baru'}
-              </Text>
-              <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                <Text style={styles.closeBtnText}>✕</Text>
-              </TouchableOpacity>
-            </View>
+            {/* Header Modal Modern */}
+            <ModalHeader
+              title={menuItem ? 'Edit Menu Angkringan' : 'Tambah Menu Baru'}
+              icon="menu"
+              onClose={onClose}
+            />
 
             <ScrollView
               style={styles.body}

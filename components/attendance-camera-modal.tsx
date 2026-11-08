@@ -15,6 +15,8 @@ import { Colors } from '../constants/theme';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
+import { AppIcon } from './ui/app-icon';
+import { ModalHeader } from './ui/modal-header';
 import { calculateAttendanceStatus, formatRealtimeClock } from '../utils/sessionHelper';
 
 interface AttendanceCameraModalProps {
@@ -59,7 +61,7 @@ export function AttendanceCameraModal({
       <Modal visible={visible} transparent animationType="fade">
         <View style={styles.overlay}>
           <Card style={styles.permissionCard}>
-            <Text style={{ fontSize: 40, marginBottom: 12 }}>📷</Text>
+            <AppIcon name="camera" size={44} color={Colors.primary} style={{ marginBottom: 12 }} />
             <Text style={styles.permTitle}>Izin Kamera Diperlukan</Text>
             <Text style={styles.permDesc}>
               Aplikasi memerlukan izin akses kamera perangkat untuk mengambil foto bukti kehadiran absensi karyawan.
@@ -112,24 +114,13 @@ export function AttendanceCameraModal({
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.overlay}>
         <Card style={styles.cameraCard}>
-          {/* Header */}
-          <View style={styles.header}>
-            <View>
-              <Text style={styles.title}>Absensi Masuk: {employeeName}</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                <Text style={styles.clockSub}>{currentTimeStr}</Text>
-                {isLate ? (
-                  <Badge label={`Terlambat ${lateMinutes} Menit`} variant="danger" size="sm" />
-                ) : (
-                  <Badge label="Tepat Waktu (<= 17.30)" variant="success" size="sm" />
-                )}
-              </View>
-            </View>
-
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Text style={styles.closeText}>✕ Batal</Text>
-            </TouchableOpacity>
-          </View>
+          {/* Header Modal Modern */}
+          <ModalHeader
+            title={`Absensi Masuk: ${employeeName}`}
+            subtitle={`${currentTimeStr} • ${isLate ? `Terlambat ${lateMinutes} Menit` : 'Tepat Waktu'}`}
+            icon="camera"
+            onClose={onClose}
+          />
 
           {/* Viewfinder Kamera atau Foto Terambil */}
           <View style={styles.viewfinderWrapper}>
@@ -153,7 +144,8 @@ export function AttendanceCameraModal({
                   style={styles.switchFacingBtn}
                   onPress={() => setFacing(facing === 'front' ? 'back' : 'front')}
                 >
-                  <Text style={styles.switchFacingText}>🔄 Balik Kamera</Text>
+                  <AppIcon name="camera-reverse" size={16} color={Colors.textSecondary} />
+                  <Text style={styles.switchFacingText}>Balik Kamera</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -306,6 +298,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   switchFacingBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 6,

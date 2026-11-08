@@ -21,6 +21,8 @@ import { RealtimeClockBadge } from '../../components/realtime-clock-badge';
 import { Card } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
+import { AppIcon } from '../../components/ui/app-icon';
+import { ModalHeader } from '../../components/ui/modal-header';
 import { withSqliteRetry } from '../../services/database';
 import { usePrinterStore } from '../../stores/printerStore';
 import { PrinterManagementModal } from '../../components/printer-management-modal';
@@ -516,7 +518,7 @@ export default function SettingsScreen() {
             </View>
           ) : (
             <View style={styles.qrisPlaceholderContainer}>
-              <Text style={{ fontSize: 40, marginBottom: 8 }}>📱</Text>
+              <AppIcon name="qris" size={40} color={Colors.textMuted} style={{ marginBottom: 8 }} />
               <Text style={styles.placeholderTitle}>Belum Ada Foto QRIS Toko</Text>
               <Text style={styles.placeholderSubtitle}>
                 Unggah foto stiker atau tangkapan layar barcode QRIS dari BCA, Mandiri, BRI, GoPay, ShopeePay, atau merchant aggregator Anda.
@@ -551,7 +553,7 @@ export default function SettingsScreen() {
 
           {bankAccounts.length === 0 ? (
             <View style={styles.emptyBankContainer}>
-              <Text style={{ fontSize: 32, marginBottom: 6 }}>🏦</Text>
+              <AppIcon name="bank" size={36} color={Colors.textMuted} style={{ marginBottom: 6 }} />
               <Text style={styles.placeholderTitle}>Belum Ada Rekening Bank Didaftarkan</Text>
               <Text style={styles.placeholderSubtitle}>
                 Daftarkan rekening bank toko (BCA, Mandiri, BRI, BNI, dll) agar kasir dapat memilih rekening saat metode transfer dipilih.
@@ -567,7 +569,8 @@ export default function SettingsScreen() {
                       onPress={() => handleDeleteBankAccount(account.id, account.bank_name, account.account_number)}
                       style={styles.deleteBankBtn}
                     >
-                      <Text style={styles.deleteBankBtnText}>✕ Hapus</Text>
+                      <AppIcon name="trash" size={12} color={Colors.danger} />
+                      <Text style={styles.deleteBankBtnText}>Hapus</Text>
                     </TouchableOpacity>
                   </View>
                   <Text style={styles.bankAccountNumber} selectable>{account.account_number}</Text>
@@ -673,10 +676,13 @@ export default function SettingsScreen() {
           </View>
 
           <View style={styles.infoBox}>
-            <Text style={styles.infoText}>
-              💡 Tip Keamanan: Sangat disarankan untuk mengekspor cadangan JSON seminggu sekali atau
-              setiap akhir bulan untuk menjaga seluruh data penjualan, absensi, dan master menu tetap aman.
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+              <AppIcon name="info" size={16} color={Colors.primary} style={{ marginTop: 2 }} />
+              <Text style={styles.infoText}>
+                Tip Keamanan: Sangat disarankan untuk mengekspor cadangan JSON seminggu sekali atau
+                setiap akhir bulan untuk menjaga seluruh data penjualan, absensi, dan master menu tetap aman.
+              </Text>
+            </View>
           </View>
         </Card>
 
@@ -756,20 +762,12 @@ export default function SettingsScreen() {
       >
         <View style={styles.modalOverlay}>
           <Card style={styles.bankModalCard}>
-            <View style={styles.bankModalHeader}>
-              <View>
-                <Text style={styles.bankModalTitle}>Tambah Rekening Bank Toko</Text>
-                <Text style={styles.bankModalSubtitle}>
-                  Daftarkan nomor rekening tujuan transfer pembayaran
-                </Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => setBankModalVisible(false)}
-                style={styles.modalCloseBtn}
-              >
-                <Text style={styles.modalCloseBtnText}>✕ Batal</Text>
-              </TouchableOpacity>
-            </View>
+            <ModalHeader
+              title="Tambah Rekening Bank Toko"
+              subtitle="Daftarkan nomor rekening tujuan transfer pembayaran"
+              icon="bank"
+              onClose={() => setBankModalVisible(false)}
+            />
 
             <Text style={styles.label}>Pilihan Bank Populer:</Text>
             <View style={styles.presetBankRow}>
@@ -1091,6 +1089,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   deleteBankBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 4,

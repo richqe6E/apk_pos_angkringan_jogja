@@ -15,7 +15,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '../constants/theme';
 import { RealtimeClockBadge } from '../components/realtime-clock-badge';
-import { IconSymbol } from '../components/ui/icon-symbol';
+import { AppIcon } from '../components/ui/app-icon';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
@@ -251,7 +251,7 @@ export default function TransaksiScreen() {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <IconSymbol name="house.fill" size={20} color="#ffffff" />
+            <AppIcon name="arrow-back" size={20} color="#ffffff" />
           </TouchableOpacity>
           <View>
             <Text style={styles.headerTitle}>ANGKRINGAN JOGJA</Text>
@@ -265,11 +265,11 @@ export default function TransaksiScreen() {
             style={styles.cashierHeaderBtn}
             onPress={() => setCashierModalVisible(true)}
           >
-            <IconSymbol name="person.crop.circle" size={18} color="#ffffff" />
+            <AppIcon name="people" size={17} color="#ffffff" />
             <Text style={styles.cashierHeaderName}>
               {activeCashier || activeCashierName ? `Kasir: ${activeCashier || activeCashierName}` : 'Pilih Kasir'}
             </Text>
-            <Text style={styles.dropdownCaret}>▼</Text>
+            <AppIcon name="chevron-down" size={12} color="rgba(255, 255, 255, 0.8)" style={{ marginLeft: 6 }} />
           </TouchableOpacity>
 
           {/* Customer Selector Bar di Header */}
@@ -277,12 +277,12 @@ export default function TransaksiScreen() {
             style={styles.customerHeaderBtn}
             onPress={() => setCustomerModalVisible(true)}
           >
-            <IconSymbol name="person.2.fill" size={18} color="#ffffff" />
+            <AppIcon name="people" size={17} color="#ffffff" />
             <Text style={styles.customerHeaderName}>{customerName}</Text>
             {eligibleReward && (
               <Badge label="Klaim Reward" variant="success" size="sm" style={{ marginLeft: 6 }} />
             )}
-            <Text style={styles.dropdownCaret}>▼</Text>
+            <AppIcon name="chevron-down" size={12} color="rgba(255, 255, 255, 0.8)" style={{ marginLeft: 6 }} />
           </TouchableOpacity>
 
           {/* Printer Management Trigger */}
@@ -290,7 +290,7 @@ export default function TransaksiScreen() {
             style={styles.printerHeaderBtn}
             onPress={() => setPrinterModalVisible(true)}
           >
-            <IconSymbol name="printer.fill" size={18} color="#ffffff" />
+            <AppIcon name="print" size={17} color="#ffffff" />
             <Text style={styles.printerHeaderLabel}>Printer</Text>
           </TouchableOpacity>
         </View>
@@ -308,7 +308,7 @@ export default function TransaksiScreen() {
           {/* Top Search & Toolbar */}
           <View style={styles.catalogTopBar}>
             <View style={styles.searchBox}>
-              <IconSymbol name="flame.fill" size={18} color={Colors.textMuted} />
+              <AppIcon name="search" size={18} color={Colors.textMuted} />
               <TextInput
                 style={styles.searchInput}
                 value={searchQuery}
@@ -317,8 +317,11 @@ export default function TransaksiScreen() {
                 placeholderTextColor={Colors.placeholder}
               />
               {searchQuery.length > 0 && (
-                <TouchableOpacity onPress={() => setSearchQuery('')}>
-                  <Text style={{ color: Colors.textMuted, paddingHorizontal: 6, fontWeight: '700' }}>✕</Text>
+                <TouchableOpacity
+                  onPress={() => setSearchQuery('')}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <AppIcon name="close" size={15} color={Colors.textMuted} />
                 </TouchableOpacity>
               )}
             </View>
@@ -327,9 +330,10 @@ export default function TransaksiScreen() {
               style={styles.tableSelectorTrigger}
               onPress={() => setTableModalVisible(true)}
             >
+              <AppIcon name="table" size={16} color={Colors.primaryDark} style={{ marginRight: 6 }} />
               <Text style={styles.tableTriggerLabel}>Meja:</Text>
               <Text style={styles.tableTriggerValue}>{tableNumber}</Text>
-              <Text style={styles.tableTriggerCaret}>▼</Text>
+              <AppIcon name="chevron-down" size={12} color={Colors.primaryDark} style={{ marginLeft: 6 }} />
             </TouchableOpacity>
           </View>
 
@@ -363,7 +367,7 @@ export default function TransaksiScreen() {
                         <Image source={{ uri: item.image_path }} style={styles.menuImage} />
                       ) : (
                         <View style={styles.menuImagePlaceholder}>
-                          <Text style={{ fontSize: 28 }}>🍢</Text>
+                          <AppIcon name="cart" size={26} color={Colors.textMuted} />
                         </View>
                       )}
                       {item.track_stock === 1 && (
@@ -404,7 +408,7 @@ export default function TransaksiScreen() {
                     selectedCategoryId === null && styles.categoryPillTextActive,
                   ]}
                 >
-                  🍴 Semua Menu
+                  Semua Menu
                 </Text>
               </TouchableOpacity>
 
@@ -473,7 +477,7 @@ export default function TransaksiScreen() {
           <ScrollView style={styles.cartItemsScroll} contentContainerStyle={{ paddingVertical: 4 }}>
             {cart.length === 0 ? (
               <View style={styles.emptyCartBox}>
-                <Text style={{ fontSize: 32, marginBottom: 8 }}>🛒</Text>
+                <AppIcon name="cart" size={40} color={Colors.textMuted} style={{ marginBottom: 10 }} />
                 <Text style={styles.emptyCartTitle}>Keranjang Kosong</Text>
                 <Text style={styles.emptyCartDesc}>
                   Ketuk menu di katalog sebelah kiri untuk menambahkan pesanan meja ini.
@@ -520,7 +524,9 @@ export default function TransaksiScreen() {
                     <TouchableOpacity
                       style={styles.deleteItemBtn}
                       onPress={() => removeFromCart(item.menu_id)}
+                      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                     >
+                      <AppIcon name="trash" size={12} color={Colors.danger} />
                       <Text style={styles.deleteItemText}>Hapus</Text>
                     </TouchableOpacity>
                   </View>
@@ -1040,7 +1046,10 @@ const styles = StyleSheet.create({
     color: Colors.text,
   },
   deleteItemBtn: {
-    marginTop: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    marginTop: 4,
   },
   deleteItemText: {
     fontSize: 11,

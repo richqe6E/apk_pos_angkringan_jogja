@@ -8,7 +8,7 @@ import { RealtimeClockBadge } from '../../components/realtime-clock-badge';
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
-import { IconSymbol } from '../../components/ui/icon-symbol';
+import { AppIcon } from '../../components/ui/app-icon';
 import { formatRupiahDisplay } from '../../utils/formatRupiah';
 import { getBusinessDate } from '../../utils/sessionHelper';
 import { withSqliteRetry } from '../../services/database';
@@ -127,7 +127,7 @@ export default function DashboardScreen() {
               size="lg"
               style={{ minWidth: 200 }}
               onPress={() => router.push('/transaksi')}
-              icon={<IconSymbol name="cart.fill" size={20} color="#ffffff" />}
+              icon={<AppIcon name="cart" size={20} color="#ffffff" />}
             />
           </View>
         </Card>
@@ -168,7 +168,10 @@ export default function DashboardScreen() {
         {/* Menu Terlaris Hari Ini */}
         {topItems.length > 0 && (
           <Card style={styles.topItemsCard}>
-            <Text style={styles.topItemsTitle}>🔥 Menu Terlaris Sesi Ini:</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+              <AppIcon name="star" size={16} color="#d97706" />
+              <Text style={styles.topItemsTitle}>Menu Terlaris Sesi Ini:</Text>
+            </View>
             <View style={styles.topItemsRow}>
               {topItems.map((item, idx) => (
                 <View key={idx} style={styles.topItemBadge}>
@@ -190,7 +193,7 @@ export default function DashboardScreen() {
             activeOpacity={0.7}
           >
             <View style={[styles.iconBox, { backgroundColor: Colors.primarySoft }]}>
-              <IconSymbol name="camera.fill" size={24} color={Colors.primary} />
+              <AppIcon name="camera" size={24} color={Colors.primary} />
             </View>
             <Text style={styles.shortcutTitle}>Absensi Karyawan</Text>
             <Text style={styles.shortcutDesc}>Foto kamera masuk 17.30 & tutup sesi pulang</Text>
@@ -202,7 +205,7 @@ export default function DashboardScreen() {
             activeOpacity={0.7}
           >
             <View style={[styles.iconBox, { backgroundColor: '#fef3c7' }]}>
-              <IconSymbol name="flame.fill" size={24} color="#d97706" />
+              <AppIcon name="menu" size={24} color="#d97706" />
             </View>
             <Text style={styles.shortcutTitle}>Katalog Menu</Text>
             <Text style={styles.shortcutDesc}>Kelola nasi kucing, sate, bakaran & minuman</Text>
@@ -214,7 +217,7 @@ export default function DashboardScreen() {
             activeOpacity={0.7}
           >
             <View style={[styles.iconBox, { backgroundColor: '#e0f2fe' }]}>
-              <IconSymbol name="clock.fill" size={24} color="#0284c7" />
+              <AppIcon name="history" size={24} color="#0284c7" />
             </View>
             <Text style={styles.shortcutTitle}>Riwayat Transaksi</Text>
             <Text style={styles.shortcutDesc}>Audit pesanan meja, kas masuk & kas keluar</Text>
@@ -226,7 +229,7 @@ export default function DashboardScreen() {
             activeOpacity={0.7}
           >
             <View style={[styles.iconBox, { backgroundColor: '#dcfce7' }]}>
-              <IconSymbol name="chart.bar.doc.horizontal.fill" size={24} color="#16a34a" />
+              <AppIcon name="financial" size={24} color="#16a34a" />
             </View>
             <Text style={styles.shortcutTitle}>Laporan Keuangan</Text>
             <Text style={styles.shortcutDesc}>Laba rugi & input HPP global akhir bulan</Text>
@@ -238,7 +241,7 @@ export default function DashboardScreen() {
             activeOpacity={0.7}
           >
             <View style={[styles.iconBox, { backgroundColor: '#fdf2f8' }]}>
-              <IconSymbol name="star.fill" size={24} color="#db2777" />
+              <AppIcon name="star" size={24} color="#db2777" />
             </View>
             <Text style={styles.shortcutTitle}>Pelanggan & Reward</Text>
             <Text style={styles.shortcutDesc}>Akumulasi belanja seumur hidup & multi-tier reward</Text>
@@ -250,7 +253,7 @@ export default function DashboardScreen() {
             activeOpacity={0.7}
           >
             <View style={[styles.iconBox, { backgroundColor: '#ffedd5' }]}>
-              <IconSymbol name="paperplane.fill" size={24} color="#ea580c" />
+              <AppIcon name="supplier" size={24} color="#ea580c" />
             </View>
             <Text style={styles.shortcutTitle}>Supplier & Pembelian</Text>
             <Text style={styles.shortcutDesc}>Belanja bahan tunai/tempo & foto nota supplier</Text>

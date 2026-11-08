@@ -16,6 +16,7 @@ import { Colors } from '../constants/theme';
 import { Employee, useEmployeeStore } from '../stores/employeeStore';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
+import { ModalHeader } from './ui/modal-header';
 
 interface EmployeeModalProps {
   visible: boolean;
@@ -104,14 +105,12 @@ export function EmployeeModal({ visible, employee, onClose }: EmployeeModalProps
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <Card style={styles.modalCard}>
-          <View style={styles.header}>
-            <Text style={styles.title}>
-              {employee ? 'Edit Data Karyawan' : 'Daftarkan Karyawan Baru'}
-            </Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Text style={styles.closeText}>✕</Text>
-            </TouchableOpacity>
-          </View>
+          {/* Header Modal Modern */}
+          <ModalHeader
+            title={employee ? 'Edit Data Karyawan' : 'Daftarkan Karyawan Baru'}
+            icon="person"
+            onClose={onClose}
+          />
 
           <ScrollView style={styles.scrollArea} keyboardShouldPersistTaps="handled">
             <View style={styles.form}>

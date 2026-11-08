@@ -18,6 +18,7 @@ import { RealtimeClockBadge } from '../../components/realtime-clock-badge';
 import { Card } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
+import { AppIcon } from '../../components/ui/app-icon';
 import { Employee, useEmployeeStore } from '../../stores/employeeStore';
 import { AttendanceRecord, useAttendanceStore } from '../../stores/attendanceStore';
 import { AttendanceCameraModal } from '../../components/attendance-camera-modal';
@@ -238,8 +239,11 @@ export default function AttendanceScreen() {
       {/* Operating Status & Summary Card */}
       <Card style={styles.summaryCard}>
         <View style={styles.summaryTop}>
-          <View>
-            <Text style={styles.summaryLabel}>TANGGAL OPERASIONAL ANGKRINGAN</Text>
+          <View style={{ flex: 1, paddingRight: 16 }}>
+            <View style={styles.summaryLabelRow}>
+              <AppIcon name="calendar" size={14} color={Colors.primary} />
+              <Text style={styles.summaryLabel}>TANGGAL OPERASIONAL ANGKRINGAN</Text>
+            </View>
             <Text style={styles.summaryDate}>{formatFullIndonesianDate(businessDate)}</Text>
             <Text style={styles.summaryNote}>Patokan Jam Masuk: 17.30 WIB (Melebihi = Terlambat otomatis)</Text>
           </View>
@@ -538,9 +542,12 @@ export default function AttendanceScreen() {
           {/* Breakdown Header */}
           <View style={styles.breakdownHeader}>
             <View>
-              <Text style={styles.breakdownTitle}>
-                📅 Rincian Absensi: {formatFullIndonesianDate(selectedDate)}
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <AppIcon name="calendar" size={18} color={Colors.primary} />
+                <Text style={styles.breakdownTitle}>
+                  Rincian Absensi: {formatFullIndonesianDate(selectedDate)}
+                </Text>
+              </View>
               <Text style={styles.breakdownSubtitle}>
                 Daftar presensi seluruh karyawan yang bertugas pada tanggal operasional ini
               </Text>
@@ -568,7 +575,7 @@ export default function AttendanceScreen() {
           {/* List of Employee Cards on that Date */}
           {selectedDateRecords.length === 0 ? (
             <View style={styles.emptyBreakdown}>
-              <Text style={styles.emptyBreakdownEmoji}>🍃</Text>
+              <AppIcon name="calendar" size={40} color={Colors.textMuted} style={{ marginBottom: 10 }} />
               <Text style={styles.emptyBreakdownTitle}>Tidak Ada Data Absensi</Text>
               <Text style={styles.emptyBreakdownSub}>
                 Tidak ada catatan kehadiran staf untuk tanggal {formatFullIndonesianDate(selectedDate)}.
@@ -915,6 +922,12 @@ const styles = StyleSheet.create({
     borderBottomColor: '#f1f5f9',
     paddingBottom: 16,
     marginBottom: 16,
+  },
+  summaryLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
   },
   summaryLabel: {
     fontSize: 11,

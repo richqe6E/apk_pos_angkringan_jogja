@@ -16,6 +16,8 @@ import { useTransactionStore } from '../stores/transactionStore';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
+import { AppIcon } from './ui/app-icon';
+import { ModalHeader } from './ui/modal-header';
 import { formatRupiahDisplay, formatRupiahInput } from '../utils/formatRupiah';
 
 export interface BankAccount {
@@ -183,21 +185,13 @@ export function PaymentModal({ visible, onClose, onSuccess }: PaymentModalProps)
       <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.overlay}>
         <Card style={styles.modalCard}>
-          {/* Header Pembayaran */}
-          <View style={styles.modalHeader}>
-            <View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Text style={styles.title}>Tahap Pembayaran Kasir</Text>
-                <Badge label={tableNumber} variant="info" />
-              </View>
-              <Text style={styles.subtitle}>
-                Pelanggan: <Text style={{ fontWeight: '700', color: Colors.text }}>{customerName}</Text> • {cart.length} item pesanan
-              </Text>
-            </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Text style={styles.closeText}>✕ Batal</Text>
-            </TouchableOpacity>
-          </View>
+          {/* Header Pembayaran Modern */}
+          <ModalHeader
+            title="Tahap Pembayaran Kasir"
+            subtitle={`Pelanggan: ${customerName} • ${cart.length} menu (Meja ${tableNumber})`}
+            icon="cash"
+            onClose={onClose}
+          />
 
           <View style={styles.bodySplit}>
             {/* Sisi Kiri: Rincian Tagihan & Metode Bayar */}
@@ -225,13 +219,18 @@ export function PaymentModal({ visible, onClose, onSuccess }: PaymentModalProps)
                     setAmountString('');
                   }}
                 >
+                  <AppIcon
+                    name="cash"
+                    size={18}
+                    color={paymentMethod === 'tunai' ? Colors.primaryDark : Colors.textSecondary}
+                  />
                   <Text
                     style={[
                       styles.methodBtnText,
                       paymentMethod === 'tunai' && styles.methodBtnTextActive,
                     ]}
                   >
-                    💵 Tunai
+                    Tunai
                   </Text>
                 </TouchableOpacity>
 
@@ -245,13 +244,18 @@ export function PaymentModal({ visible, onClose, onSuccess }: PaymentModalProps)
                     setAmountString(String(total));
                   }}
                 >
+                  <AppIcon
+                    name="qris"
+                    size={18}
+                    color={paymentMethod === 'qris' ? Colors.primaryDark : Colors.textSecondary}
+                  />
                   <Text
                     style={[
                       styles.methodBtnText,
                       paymentMethod === 'qris' && styles.methodBtnTextActive,
                     ]}
                   >
-                    📱 QRIS
+                    QRIS
                   </Text>
                 </TouchableOpacity>
 
@@ -265,13 +269,18 @@ export function PaymentModal({ visible, onClose, onSuccess }: PaymentModalProps)
                     setAmountString(String(total));
                   }}
                 >
+                  <AppIcon
+                    name="bank"
+                    size={18}
+                    color={paymentMethod === 'transfer' ? Colors.primaryDark : Colors.textSecondary}
+                  />
                   <Text
                     style={[
                       styles.methodBtnText,
                       paymentMethod === 'transfer' && styles.methodBtnTextActive,
                     ]}
                   >
-                    🏦 Transfer
+                    Transfer
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -372,7 +381,8 @@ export function PaymentModal({ visible, onClose, onSuccess }: PaymentModalProps)
                         resizeMode="contain"
                       />
                       <View style={styles.zoomHintBadge}>
-                        <Text style={styles.zoomHintText}>🔍 Ketuk untuk Layar Penuh</Text>
+                        <AppIcon name="search" size={12} color="#ffffff" style={{ marginRight: 4 }} />
+                        <Text style={styles.zoomHintText}>Ketuk untuk Layar Penuh</Text>
                       </View>
                     </TouchableOpacity>
 
@@ -386,7 +396,7 @@ export function PaymentModal({ visible, onClose, onSuccess }: PaymentModalProps)
                     </View>
 
                     <Button
-                      title="🔍 Tampilkan QRIS Layar Penuh (Untuk Pelanggan)"
+                      title="Tampilkan QRIS Layar Penuh (Untuk Pelanggan)"
                       variant="outline"
                       size="sm"
                       onPress={() => setQrisFullScreenVisible(true)}
@@ -395,14 +405,14 @@ export function PaymentModal({ visible, onClose, onSuccess }: PaymentModalProps)
                   </View>
                 ) : (
                   <View style={styles.qrisMissingCard}>
-                    <Text style={{ fontSize: 44, marginBottom: 10 }}>⚠️</Text>
+                    <AppIcon name="alert-circle" size={44} color={Colors.warning} style={{ marginBottom: 10 }} />
                     <Text style={styles.qrisMissingTitle}>Foto QRIS Toko Belum Diunggah</Text>
                     <Text style={styles.qrisMissingDesc}>
                       Pemilik toko belum mengatur gambar barcode QRIS. Buka menu Pengaturan &gt; Pembayaran QRIS Toko untuk mengunggah gambar QRIS.
                     </Text>
                     <View style={styles.qrisMissingTipBox}>
                       <Text style={styles.qrisMissingTipText}>
-                        💡 Info Kasir: Pelanggan tetap dapat melakukan pembayaran jika kasir menyediakan stiker QRIS fisik. Tekan tombol Selesaikan Pembayaran setelah verifikasi.
+                        Info Kasir: Pelanggan tetap dapat melakukan pembayaran jika kasir menyediakan stiker QRIS fisik. Tekan tombol Selesaikan Pembayaran setelah verifikasi.
                       </Text>
                     </View>
                   </View>
@@ -468,7 +478,7 @@ export function PaymentModal({ visible, onClose, onSuccess }: PaymentModalProps)
                                   isCopied && styles.copyBtnTextSuccess,
                                 ]}
                               >
-                                {isCopied ? '✓ Tersalin' : '📋 Salin'}
+                                {isCopied ? 'Tersalin' : 'Salin'}
                               </Text>
                             </TouchableOpacity>
                           </View>
@@ -482,20 +492,20 @@ export function PaymentModal({ visible, onClose, onSuccess }: PaymentModalProps)
 
                     <View style={styles.transferVerifyNotice}>
                       <Text style={styles.transferVerifyText}>
-                        ✓ Pastikan kasir telah memverifikasi bukti transfer atau notifikasi m-Banking sebelum menyelesaikan transaksi.
+                        Pastikan kasir telah memverifikasi bukti transfer atau notifikasi m-Banking sebelum menyelesaikan transaksi.
                       </Text>
                     </View>
                   </ScrollView>
                 ) : (
                   <View style={styles.qrisMissingCard}>
-                    <Text style={{ fontSize: 44, marginBottom: 10 }}>🏦</Text>
+                    <AppIcon name="bank" size={44} color={Colors.textMuted} style={{ marginBottom: 10 }} />
                     <Text style={styles.qrisMissingTitle}>Belum Ada Rekening Terdaftar</Text>
                     <Text style={styles.qrisMissingDesc}>
                       Daftarkan rekening bank toko (BCA, Mandiri, BRI, dll) di menu Pengaturan &gt; Rekening Bank Toko.
                     </Text>
                     <View style={styles.qrisMissingTipBox}>
                       <Text style={styles.qrisMissingTipText}>
-                        💡 Info Kasir: Transaksi transfer tetap dapat diselesaikan dengan pencatatan manual.
+                        Info Kasir: Transaksi transfer tetap dapat diselesaikan dengan pencatatan manual.
                       </Text>
                     </View>
                   </View>
@@ -679,6 +689,9 @@ const styles = StyleSheet.create({
   },
   methodBtn: {
     flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
     paddingVertical: 12,
     borderWidth: 1,
     borderColor: Colors.border,

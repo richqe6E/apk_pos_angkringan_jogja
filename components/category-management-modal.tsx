@@ -15,6 +15,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { Colors } from '../constants/theme';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
+import { ModalHeader } from './ui/modal-header';
 import { useMenuStore, Category } from '../stores/menuStore';
 
 interface CategoryManagementModalProps {
@@ -131,18 +132,13 @@ export function CategoryManagementModal({
           style={styles.keyboardAvoid}
         >
           <View style={styles.modalBox}>
-            {/* Header */}
-            <View style={styles.header}>
-              <View>
-                <Text style={styles.title}>Kelola Kategori Menu</Text>
-                <Text style={styles.subtitle}>
-                  Tambah, ubah nama, atau hapus kategori ({categories.length} kategori terdaftar)
-                </Text>
-              </View>
-              <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                <Text style={styles.closeBtnText}>✕</Text>
-              </TouchableOpacity>
-            </View>
+            {/* Header Modal Modern */}
+            <ModalHeader
+              title="Kelola Kategori Menu"
+              subtitle={`Tambah, ubah nama, atau hapus kategori (${categories.length} kategori)`}
+              icon="tag"
+              onClose={onClose}
+            />
 
             {/* Input Tambah Kategori Baru */}
             <View style={styles.addSection}>

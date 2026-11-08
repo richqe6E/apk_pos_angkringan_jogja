@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
 import { HapticTab } from '../../components/haptic-tab';
-import { IconSymbol } from '../../components/ui/icon-symbol';
+import { AppIcon } from '../../components/ui/app-icon';
 import { Colors } from '../../constants/theme';
 
 export default function TabLayout() {
@@ -31,7 +31,7 @@ export default function TabLayout() {
         options={{
           title: 'Dashboard',
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={26} name="square.grid.2x2.fill" color={color} />
+            <AppIcon size={24} name="dashboard" color={color} />
           ),
         }}
       />
@@ -40,7 +40,7 @@ export default function TabLayout() {
         options={{
           title: 'Menu',
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={26} name="flame.fill" color={color} />
+            <AppIcon size={24} name="menu" color={color} />
           ),
         }}
       />
@@ -49,7 +49,7 @@ export default function TabLayout() {
         options={{
           title: 'Riwayat',
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={26} name="clock.fill" color={color} />
+            <AppIcon size={24} name="history" color={color} />
           ),
         }}
       />
@@ -58,7 +58,7 @@ export default function TabLayout() {
         options={{
           title: 'Absensi',
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={26} name="camera.fill" color={color} />
+            <AppIcon size={24} name="attendance" color={color} />
           ),
         }}
       />
@@ -67,7 +67,7 @@ export default function TabLayout() {
         options={{
           title: 'Keuangan',
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={26} name="chart.bar.doc.horizontal.fill" color={color} />
+            <AppIcon size={24} name="financial" color={color} />
           ),
         }}
       />
@@ -76,7 +76,7 @@ export default function TabLayout() {
         options={{
           title: 'Pengaturan',
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={26} name="gearshape.fill" color={color} />
+            <AppIcon size={24} name="settings" color={color} />
           ),
         }}
       />

@@ -17,6 +17,7 @@ import { RealtimeClockBadge } from '../../components/realtime-clock-badge';
 import { Card } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
+import { AppIcon } from '../../components/ui/app-icon';
 import { formatRupiahDisplay } from '../../utils/formatRupiah';
 import { MenuItem, useMenuStore } from '../../stores/menuStore';
 import { MenuFormModal } from '../../components/menu-form-modal';
@@ -183,7 +184,7 @@ export default function ExploreMenuScreen() {
                     <Image source={{ uri: item.image_path }} style={styles.menuImg} />
                   ) : (
                     <View style={styles.placeholderImg}>
-                      <Text style={styles.placeholderImgText}>🍢</Text>
+                      <AppIcon name="cart" size={24} color={Colors.textMuted} />
                     </View>
                   )}
 

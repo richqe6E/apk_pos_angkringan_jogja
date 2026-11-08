@@ -18,6 +18,8 @@ import { Colors } from '../constants/theme';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
+import { AppIcon } from './ui/app-icon';
+import { ModalHeader } from './ui/modal-header';
 import { formatRupiahDisplay, formatRupiahInput, parseRupiahInput } from '../utils/formatRupiah';
 import { Supplier, usePurchaseStore, CreatePurchaseInput } from '../stores/purchaseStore';
 import { SupplierModal } from './supplier-modal';
@@ -155,18 +157,13 @@ export function PurchaseFormModal({ visible, onClose }: PurchaseFormModalProps) 
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={styles.modalBox}>
-          {/* Header */}
-          <View style={styles.header}>
-            <View>
-              <Text style={styles.title}>Catat Pembelian Bahan</Text>
-              <Text style={styles.subtitle}>
-                Pengeluaran kas tunai & buku hutang tempo supplier
-              </Text>
-            </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Text style={styles.closeBtnText}>✕</Text>
-            </TouchableOpacity>
-          </View>
+          {/* Header Modal Modern */}
+          <ModalHeader
+            title="Catat Pembelian Bahan"
+            subtitle="Pengeluaran kas tunai & buku hutang tempo supplier"
+            icon="cart"
+            onClose={onClose}
+          />
 
           <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent} keyboardShouldPersistTaps="handled">
             {/* Pilihan Supplier */}

@@ -13,6 +13,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { Colors } from '../constants/theme';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
+import { ModalHeader } from './ui/modal-header';
 import { formatRupiahDisplay, parseRupiahInput } from '../utils/formatRupiah';
 import { useFinancialStore, CreateCashInput } from '../stores/financialStore';
 
@@ -139,18 +140,13 @@ export function CashEntryModal({ visible, onClose }: CashEntryModalProps) {
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View style={styles.modalBox}>
-          {/* Header */}
-          <View style={styles.header}>
-            <View>
-              <Text style={styles.title}>Catat Mutasi Buku Kas Toko</Text>
-              <Text style={styles.subtitle}>
-                Segregasi Biaya Operasional (PnL) vs Non-Operasional (Setor/Prive)
-              </Text>
-            </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Text style={styles.closeBtnText}>✕</Text>
-            </TouchableOpacity>
-          </View>
+          {/* Header Modal Modern */}
+          <ModalHeader
+            title="Catat Mutasi Buku Kas Toko"
+            subtitle="Segregasi Biaya Operasional (PnL) vs Non-Operasional (Setor/Prive)"
+            icon="cash"
+            onClose={onClose}
+          />
 
           <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
             {/* Tipe Transaksi Kas */}

@@ -15,6 +15,8 @@ import { Colors } from '../constants/theme';
 import { MenuItem, useMenuStore } from '../stores/menuStore';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
+import { ModalHeader } from './ui/modal-header';
+import { AppIcon } from './ui/app-icon';
 import { formatRupiahInput, parseRupiahInput, formatRupiahDisplay } from '../utils/formatRupiah';
 
 interface QuickEditModalProps {
@@ -117,16 +119,13 @@ export function QuickEditModal({
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <Card style={styles.dialogBox}>
-          {/* Header */}
-          <View style={styles.dialogHeader}>
-            <View>
-              <Text style={styles.dialogTitle}>Quick Edit Menu</Text>
-              <Text style={styles.dialogSubtitle}>Ubah cepat harga, stok, atau hapus menu</Text>
-            </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Text style={styles.closeBtnText}>✕</Text>
-            </TouchableOpacity>
-          </View>
+          <ModalHeader
+            title="Quick Edit Menu"
+            subtitle="Ubah cepat harga, stok, atau hapus menu"
+            icon="edit"
+            onClose={onClose}
+            style={{ paddingHorizontal: 0, paddingTop: 0, paddingBottom: 14 }}
+          />
 
           {/* Form Fields */}
           <View style={styles.fieldGroup}>
@@ -184,7 +183,8 @@ export function QuickEditModal({
           {/* Actions */}
           <View style={styles.actionRow}>
             <Button
-              title="🗑️ Hapus Menu"
+              title="Hapus Menu"
+              icon={<AppIcon name="trash" size="sm" color="#ffffff" />}
               variant="danger"
               size="sm"
               onPress={handleDelete}

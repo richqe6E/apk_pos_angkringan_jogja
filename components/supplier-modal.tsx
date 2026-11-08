@@ -14,6 +14,7 @@ import {
 import { useSQLiteContext } from 'expo-sqlite';
 import { Colors } from '../constants/theme';
 import { Button } from './ui/button';
+import { ModalHeader } from './ui/modal-header';
 import { Supplier, usePurchaseStore } from '../stores/purchaseStore';
 
 interface SupplierModalProps {
@@ -79,15 +80,12 @@ export function SupplierModal({ visible, supplier, onClose }: SupplierModalProps
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={styles.modalBox}>
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.title}>
-              {supplier ? 'Edit Data Supplier' : '+ Tambah Supplier Baru'}
-            </Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Text style={styles.closeBtnText}>✕</Text>
-            </TouchableOpacity>
-          </View>
+          {/* Header Modal Modern */}
+          <ModalHeader
+            title={supplier ? 'Edit Data Supplier' : 'Tambah Supplier Baru'}
+            icon="supplier"
+            onClose={onClose}
+          />
 
           {/* Body */}
           <ScrollView style={styles.body} keyboardShouldPersistTaps="handled">

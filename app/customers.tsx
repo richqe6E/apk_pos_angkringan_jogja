@@ -15,6 +15,7 @@ import { Colors } from '../constants/theme';
 import { Card } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
+import { AppIcon } from '../components/ui/app-icon';
 import { formatRupiahDisplay } from '../utils/formatRupiah';
 import { Customer, useCustomerStore } from '../stores/customerStore';
 import { CustomerDetailModal } from '../components/customer-detail-modal';
@@ -89,7 +90,8 @@ export default function CustomersScreen() {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Text style={styles.backBtnText}>← Kembali</Text>
+            <AppIcon name="arrow-back" size={18} color="#ffffff" />
+            <Text style={styles.backBtnText}>Kembali</Text>
           </TouchableOpacity>
           <View style={{ marginLeft: 12 }}>
             <Text style={styles.headerTitle}>Manajemen Customer & Reward</Text>
@@ -272,6 +274,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   backBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingVertical: 6,
     paddingHorizontal: 10,
     backgroundColor: 'rgba(255, 255, 255, 0.15)',

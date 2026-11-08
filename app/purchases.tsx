@@ -16,6 +16,7 @@ import { Colors } from '../constants/theme';
 import { Card } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
+import { AppIcon } from '../components/ui/app-icon';
 import { formatRupiahDisplay } from '../utils/formatRupiah';
 import {
   Supplier,
@@ -332,7 +333,8 @@ export default function PurchasesScreen() {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Text style={styles.backBtnText}>← Kembali</Text>
+            <AppIcon name="arrow-back" size={18} color="#ffffff" />
+            <Text style={styles.backBtnText}>Kembali</Text>
           </TouchableOpacity>
           <View style={{ marginLeft: 12 }}>
             <Text style={styles.headerTitle}>Supplier & Pembelian Bahan</Text>
@@ -449,7 +451,8 @@ export default function PurchasesScreen() {
             style={styles.photoCloseBtn}
             onPress={() => setViewPhotoUri(null)}
           >
-            <Text style={styles.photoCloseText}>✕ Tutup</Text>
+            <AppIcon name="close" size={16} color="#000000" />
+            <Text style={styles.photoCloseText}>Tutup</Text>
           </TouchableOpacity>
           {viewPhotoUri ? (
             <Image
@@ -482,6 +485,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   backBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingVertical: 6,
     paddingHorizontal: 10,
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
@@ -744,6 +750,9 @@ const styles = StyleSheet.create({
     top: 40,
     right: 20,
     backgroundColor: '#ffffff',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 20,

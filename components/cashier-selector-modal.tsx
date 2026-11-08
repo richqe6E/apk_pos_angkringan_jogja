@@ -15,7 +15,7 @@ import { useTransactionStore } from '../stores/transactionStore';
 import { Employee, useEmployeeStore } from '../stores/employeeStore';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
-import { IconSymbol } from './ui/icon-symbol';
+import { AppIcon } from './ui/app-icon';
 
 interface CashierSelectorModalProps {
   visible: boolean;
@@ -66,7 +66,7 @@ export function CashierSelectorModal({ visible, onClose }: CashierSelectorModalP
           <View style={styles.header}>
             <View style={styles.headerLeft}>
               <View style={styles.iconCircle}>
-                <IconSymbol name="person.crop.circle" size={24} color="#ffffff" />
+                <AppIcon name="people" size={22} color="#ffffff" />
               </View>
               <View>
                 <Text style={styles.title}>Identitas Kasir Bertugas</Text>
@@ -78,7 +78,7 @@ export function CashierSelectorModal({ visible, onClose }: CashierSelectorModalP
 
             {activeCashierName ? (
               <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                <Text style={styles.closeText}>✕</Text>
+                <AppIcon name="close" size={16} color={Colors.textSecondary} />
               </TouchableOpacity>
             ) : null}
           </View>
@@ -100,7 +100,7 @@ export function CashierSelectorModal({ visible, onClose }: CashierSelectorModalP
 
           {/* Search Bar */}
           <View style={styles.searchBox}>
-            <IconSymbol name="magnifyingglass" size={18} color={Colors.textMuted} />
+            <AppIcon name="search" size={18} color={Colors.textMuted} />
             <TextInput
               style={styles.searchInput}
               placeholder="Cari nama karyawan staf kasir..."
@@ -109,8 +109,11 @@ export function CashierSelectorModal({ visible, onClose }: CashierSelectorModalP
               onChangeText={setSearch}
             />
             {search.length > 0 && (
-              <TouchableOpacity onPress={() => setSearch('')}>
-                <Text style={styles.clearSearchText}>✕</Text>
+              <TouchableOpacity
+                onPress={() => setSearch('')}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <AppIcon name="close" size={14} color={Colors.textMuted} />
               </TouchableOpacity>
             )}
           </View>

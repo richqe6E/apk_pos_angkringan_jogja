@@ -16,6 +16,8 @@ import { withSqliteRetry } from '../services/database';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
+import { AppIcon } from './ui/app-icon';
+import { ModalHeader } from './ui/modal-header';
 import { formatRupiahDisplay } from '../utils/formatRupiah';
 import { getBusinessDate } from '../utils/sessionHelper';
 import { PrintReceiptData } from '../services/print';
@@ -294,11 +296,11 @@ export function TableSelectorModal({ visible, onClose }: TableSelectorModalProps
     Alert.alert(`Kelola Meja: ${t.name}`, 'Pilih tindakan untuk meja ini:', [
       { text: 'Batal', style: 'cancel' },
       {
-        text: '✏️ Edit Nama / Tipe',
+        text: 'Edit Nama / Tipe',
         onPress: () => handleOpenEditTable(t),
       },
       {
-        text: '🗑️ Hapus Meja',
+        text: 'Hapus Meja',
         style: 'destructive',
         onPress: () => handleDeleteTable(t),
       },
@@ -435,16 +437,13 @@ export function TableSelectorModal({ visible, onClose }: TableSelectorModalProps
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.overlay}>
         <Card style={styles.modalCard}>
-          {/* Header Modal */}
-          <View style={styles.modalHeader}>
-            <View>
-              <Text style={styles.title}>Pilih & Kelola Meja</Text>
-              <Text style={styles.subtitle}>Nomor meja aktif saat ini: {tableNumber}</Text>
-            </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Text style={styles.closeText}>✕</Text>
-            </TouchableOpacity>
-          </View>
+          {/* Header Modal Modern */}
+          <ModalHeader
+            title="Pilih & Kelola Meja"
+            subtitle={`Nomor meja aktif saat ini: ${tableNumber}`}
+            icon="table"
+            onClose={onClose}
+          />
 
           {/* Segmented Main Tabs */}
           <View style={styles.tabBar}>
@@ -490,7 +489,7 @@ export function TableSelectorModal({ visible, onClose }: TableSelectorModalProps
                     onPress={handleOpenAddTable}
                   />
                   <Button
-                    title={isManageMode ? '✓ Selesai' : '⚙️ Kelola Meja'}
+                    title={isManageMode ? 'Selesai' : 'Kelola Meja'}
                     variant={isManageMode ? 'secondary' : 'outline'}
                     size="sm"
                     onPress={() => setIsManageMode(!isManageMode)}
@@ -592,7 +591,7 @@ export function TableSelectorModal({ visible, onClose }: TableSelectorModalProps
                           onPress={() => handleOpenEditTable(t)}
                           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                         >
-                          <Text style={styles.cardCornerEditText}>✏️</Text>
+                          <AppIcon name="edit" size={13} color={Colors.textMuted} />
                         </TouchableOpacity>
                       )}
 
@@ -702,7 +701,7 @@ export function TableSelectorModal({ visible, onClose }: TableSelectorModalProps
                     </View>
                     <View style={styles.pendingActionsRow}>
                       <Button
-                        title="📋 Tagihan Sementara"
+                        title="Tagihan Sementara"
                         variant="outline"
                         size="sm"
                         style={{ flex: 1 }}
@@ -787,17 +786,11 @@ export function TableSelectorModal({ visible, onClose }: TableSelectorModalProps
           {tableFormVisible && (
             <View style={styles.formDialogOverlay}>
               <Card style={styles.formDialogCard}>
-                <View style={styles.formDialogHeader}>
-                  <Text style={styles.formDialogTitle}>
-                    {isEditingTable ? 'Edit Meja' : '+ Tambah Meja Baru'}
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => setTableFormVisible(false)}
-                    style={styles.closeBtn}
-                  >
-                    <Text style={styles.closeText}>✕</Text>
-                  </TouchableOpacity>
-                </View>
+                <ModalHeader
+                  title={isEditingTable ? 'Edit Meja' : 'Tambah Meja Baru'}
+                  icon="table"
+                  onClose={() => setTableFormVisible(false)}
+                />
 
                 <View style={styles.formGroup}>
                   <Text style={styles.formLabel}>Nama / Nomor Meja</Text>
@@ -823,9 +816,12 @@ export function TableSelectorModal({ visible, onClose }: TableSelectorModalProps
                 </View>
 
                 {isEditingTable && (
-                  <Text style={styles.formHelpText}>
-                    ℹ️ Mengubah nama meja otomatis memperbarui nota pending & billing yang sedang berjalan di meja ini.
-                  </Text>
+                  <View style={styles.formHelpBox}>
+                    <AppIcon name="info" size={15} color={Colors.primary} />
+                    <Text style={styles.formHelpText}>
+                      Mengubah nama meja otomatis memperbarui nota pending & billing yang sedang berjalan di meja ini.
+                    </Text>
+                  </View>
                 )}
 
                 <View style={styles.formActionsRow}>
@@ -1244,10 +1240,19 @@ const styles = StyleSheet.create({
     color: Colors.primaryDark,
     fontWeight: '700',
   },
+  formHelpBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: Colors.primarySoft,
+    padding: 10,
+    borderRadius: 6,
+    marginBottom: 14,
+  },
   formHelpText: {
     fontSize: 11,
-    color: Colors.textMuted,
-    marginBottom: 14,
+    color: Colors.textSecondary,
+    flex: 1,
     lineHeight: 16,
   },
   formActionsRow: {
