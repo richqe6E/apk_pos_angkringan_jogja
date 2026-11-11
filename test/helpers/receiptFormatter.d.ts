@@ -4,6 +4,7 @@ export interface PrintOrderItem {
   qty: number;
   subtotal: number;
   is_additional?: number;
+  notes?: string;
 }
 
 export interface PrintReceiptData {
@@ -25,6 +26,8 @@ export interface PrintReceiptData {
   paymentMethod: string;
   paymentAmount: number;
   changeAmount: number;
+  cashReceived?: number;
+  qrisReceived?: number;
 }
 
 export function formatCustomerReceiptLines(data: PrintReceiptData): string[];
@@ -35,7 +38,7 @@ export function formatKitchenTicketLines(data: {
   items: PrintOrderItem[];
 }): string[];
 export function formatKitchenAdditionalTicketLines(data: {
-  invoiceNumber: string;
+  invoiceNumber?: string;
   tableNumber: string;
   dateTimeString: string;
   additionalItems: PrintOrderItem[];

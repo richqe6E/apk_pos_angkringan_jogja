@@ -126,6 +126,19 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase): Promise<void> {
       await db.runAsync('ALTER TABLE menus ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1');
     } catch {}
 
+    // Migrasi kolom keterangan/notes pada transaction_items
+    try {
+      await db.runAsync("ALTER TABLE transaction_items ADD COLUMN notes TEXT DEFAULT ''");
+    } catch {}
+
+    // Migrasi kolom split payment (cash_received & qris_received) pada transactions
+    try {
+      await db.runAsync('ALTER TABLE transactions ADD COLUMN cash_received REAL NOT NULL DEFAULT 0');
+    } catch {}
+    try {
+      await db.runAsync('ALTER TABLE transactions ADD COLUMN qris_received REAL NOT NULL DEFAULT 0');
+    } catch {}
+
     const DATABASE_VERSION = 1;
     const versionRow = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
     const currentVersion = versionRow?.user_version ?? 0;
@@ -199,7 +212,9 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase): Promise<void> {
         status TEXT NOT NULL DEFAULT 'completed',
         merged_into_tx_id INTEGER,
         created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
-        cashier_name TEXT NOT NULL DEFAULT 'Kasir'
+        cashier_name TEXT NOT NULL DEFAULT 'Kasir',
+        cash_received REAL NOT NULL DEFAULT 0,
+        qris_received REAL NOT NULL DEFAULT 0
       );
 
       -- 7. Item Detail Transaksi
@@ -212,6 +227,7 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase): Promise<void> {
         qty INTEGER NOT NULL,
         subtotal REAL NOT NULL,
         is_additional INTEGER NOT NULL DEFAULT 0,
+        notes TEXT DEFAULT '',
         created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
       );
 

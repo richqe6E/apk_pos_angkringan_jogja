@@ -11,6 +11,7 @@ export interface CartItem {
   qty: number;
   subtotal: number;
   is_additional: number; // 0 = pesanan awal, 1 = pesanan sambungan
+  notes?: string;
 }
 
 export interface PendingOrderSummary {
@@ -59,6 +60,7 @@ interface TransactionState {
   // Actions Keranjang
   addToCart: (menu: MenuItem, qty?: number) => void;
   updateCartQty: (menuId: number, qty: number) => void;
+  updateCartItemNotes: (menuIdOrCartId: number | string, notes: string) => void;
   removeFromCart: (menuId: number) => void;
   clearCart: () => void;
   setTableNumber: (table: string) => void;
@@ -86,6 +88,7 @@ interface TransactionState {
       qty: number;
       subtotal: number;
       is_additional: number;
+      notes?: string;
     }[];
   }>;
   mergeTables: (db: SQLiteDatabase, sourceTxIds: number[], targetTableNumber: string) => Promise<number>;
@@ -93,8 +96,9 @@ interface TransactionState {
   // Checkout Pembayaran (Dua Tahap)
   checkout: (
     db: SQLiteDatabase,
-    paymentMethod: 'tunai' | 'qris' | 'transfer',
-    paymentAmount: number
+    paymentMethod: 'tunai' | 'qris' | 'transfer' | 'split',
+    paymentAmount: number,
+    splitDetails?: { cash: number; qris: number }
   ) => Promise<{
     txId: number;
     invoiceNumber: string;
@@ -102,7 +106,9 @@ interface TransactionState {
     paymentAmount: number;
     change: number;
     dailySeq: number;
-    paymentMethod: 'tunai' | 'qris' | 'transfer';
+    paymentMethod: 'tunai' | 'qris' | 'transfer' | 'split';
+    cashReceived?: number;
+    qrisReceived?: number;
   }>;
 }
 
@@ -190,6 +196,21 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
           ...item,
           qty,
           subtotal: qty * item.price,
+        };
+      }
+      return item;
+    });
+    set({ cart: updated });
+  },
+
+  updateCartItemNotes: (menuIdOrCartId: number | string, notes: string) => {
+    const { cart } = get();
+    const cleanNotes = notes.trim();
+    const updated = cart.map((item) => {
+      if (item.menu_id === menuIdOrCartId || item.id === menuIdOrCartId) {
+        return {
+          ...item,
+          notes: cleanNotes,
         };
       }
       return item;
@@ -336,6 +357,7 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
         price: number;
         qty: number;
         subtotal: number;
+        notes?: string;
       }>();
 
       for (const i of items || []) {
@@ -343,6 +365,10 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
         if (existing) {
           existing.qty += i.qty;
           existing.subtotal += i.subtotal;
+          if (i.notes && !existing.notes) existing.notes = i.notes;
+          else if (i.notes && existing.notes && !existing.notes.includes(i.notes)) {
+            existing.notes = `${existing.notes}, ${i.notes}`;
+          }
         } else {
           aggregatedMap.set(i.menu_id, {
             menu_id: i.menu_id,
@@ -350,6 +376,7 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
             price: i.price,
             qty: i.qty,
             subtotal: i.subtotal,
+            notes: i.notes || '',
           });
         }
       }
@@ -362,6 +389,7 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
         qty: i.qty,
         subtotal: i.subtotal,
         is_additional: 0, // pesanan yang sudah tersimpan
+        notes: i.notes || '',
       }));
 
       // Baseline quantities map for delta tracking
@@ -444,6 +472,7 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
         qty: number;
         subtotal: number;
         is_additional: number;
+        notes?: string;
       }[] = [];
 
       const itemsToInsert: {
@@ -453,6 +482,7 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
         qty: number;
         subtotal: number;
         is_additional: number;
+        notes?: string;
       }[] = [];
 
       for (const item of cart) {
@@ -477,6 +507,7 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
               qty: deltaQty,
               subtotal: deltaQty * item.price,
               is_additional: 1,
+              notes: item.notes || '',
             };
             itemsToInsert.push(deltaRow);
             deltaItems.push(deltaRow);
@@ -489,6 +520,7 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
               qty: item.qty,
               subtotal: item.subtotal,
               is_additional: 1,
+              notes: item.notes || '',
             };
             itemsToInsert.push(deltaRow);
             deltaItems.push(deltaRow);
@@ -502,6 +534,7 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
             qty: item.qty,
             subtotal: item.subtotal,
             is_additional: 0,
+            notes: item.notes || '',
           });
         }
       }
@@ -520,9 +553,9 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
 
           for (const row of itemsToInsert) {
             await db.runAsync(
-              `INSERT INTO transaction_items (transaction_id, menu_id, menu_name, price, qty, subtotal, is_additional)
-               VALUES (?, ?, ?, ?, ?, ?, ?)`,
-              [activePendingTransactionId, row.menu_id, row.name, row.price, row.qty, row.subtotal, row.is_additional]
+              `INSERT INTO transaction_items (transaction_id, menu_id, menu_name, price, qty, subtotal, is_additional, notes)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+              [activePendingTransactionId, row.menu_id, row.name, row.price, row.qty, row.subtotal, row.is_additional, row.notes || '']
             );
           }
         })
@@ -595,9 +628,9 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
 
         for (const item of cart) {
           await db.runAsync(
-            `INSERT INTO transaction_items (transaction_id, menu_id, menu_name, price, qty, subtotal, is_additional)
-             VALUES (?, ?, ?, ?, ?, ?, 0)`,
-            [newTxId, item.menu_id, item.name, item.price, item.qty, item.subtotal]
+            `INSERT INTO transaction_items (transaction_id, menu_id, menu_name, price, qty, subtotal, is_additional, notes)
+             VALUES (?, ?, ?, ?, ?, ?, 0, ?)`,
+            [newTxId, item.menu_id, item.name, item.price, item.qty, item.subtotal, item.notes || '']
           );
         }
       })
@@ -699,7 +732,7 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
     return primaryId;
   },
 
-  checkout: async (db: SQLiteDatabase, paymentMethod, paymentAmount) => {
+  checkout: async (db: SQLiteDatabase, paymentMethod, paymentAmount, splitDetails) => {
     const {
       cart,
       tableNumber,
@@ -722,8 +755,17 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
     }
 
     const total = getTotal();
-    if (paymentMethod === 'tunai' && paymentAmount < total) {
+    const hasSplit = paymentMethod === 'split' || (splitDetails !== undefined && (splitDetails.cash > 0 || splitDetails.qris > 0));
+    const splitCash = hasSplit ? (splitDetails?.cash ?? 0) : (paymentMethod === 'tunai' ? paymentAmount : 0);
+    const splitQris = hasSplit ? (splitDetails?.qris ?? 0) : (paymentMethod === 'qris' ? paymentAmount : 0);
+    const effectivePaymentMethod = hasSplit ? 'split' : paymentMethod;
+    const finalPaymentAmount = hasSplit ? (splitCash + splitQris) : paymentAmount;
+
+    if (!hasSplit && paymentMethod === 'tunai' && paymentAmount < total) {
       throw new Error(`Uang pembayaran tunai kurang dari total tagihan (Rp ${total.toLocaleString('id-ID')}).`);
+    }
+    if (hasSplit && (splitCash + splitQris) < total) {
+      throw new Error(`Total pembayaran split (Rp ${(splitCash + splitQris).toLocaleString('id-ID')}) kurang dari tagihan (Rp ${total.toLocaleString('id-ID')}).`);
     }
 
     set({ isCheckingOut: true });
@@ -732,7 +774,9 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
       const businessDate = getBusinessDate();
       const subtotal = getSubtotal();
       const taxAmount = getTaxAmount();
-      const change = paymentMethod === 'tunai' ? Math.max(0, paymentAmount - total) : 0;
+      const change = (!hasSplit && paymentMethod === 'tunai')
+        ? Math.max(0, paymentAmount - total)
+        : (hasSplit ? Math.max(0, (splitCash + splitQris) - total) : 0);
 
       let finalTxId: number = 0;
       let finalInvoice: string = '';
@@ -754,19 +798,21 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
                SET subtotal = ?, tax_amount = ?, discount_amount = ?, total = ?,
                    payment_method = ?, payment_amount = ?, change_amount = ?,
                    status = 'completed', table_number = ?, customer_name = ?,
-                   cashier_name = ?
+                   cashier_name = ?, cash_received = ?, qris_received = ?
                WHERE id = ?`,
               [
                 subtotal,
                 taxAmount,
                 discountAmount,
                 total,
-                paymentMethod,
-                paymentAmount,
+                effectivePaymentMethod,
+                finalPaymentAmount,
                 change,
                 tableNumber,
                 customerName,
                 get().activeCashier || get().activeCashierName || 'Kasir',
+                splitCash,
+                splitQris,
                 finalTxId,
               ]
             );
@@ -776,9 +822,9 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
 
             for (const item of cart) {
               await db.runAsync(
-                `INSERT INTO transaction_items (transaction_id, menu_id, menu_name, price, qty, subtotal, is_additional)
-                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                [finalTxId, item.menu_id, item.name, item.price, item.qty, item.subtotal, item.is_additional]
+                `INSERT INTO transaction_items (transaction_id, menu_id, menu_name, price, qty, subtotal, is_additional, notes)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                [finalTxId, item.menu_id, item.name, item.price, item.qty, item.subtotal, item.is_additional || 0, item.notes || '']
               );
             }
           } else {
@@ -801,8 +847,8 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
               `INSERT INTO transactions (
                 invoice_number, business_date, table_number, customer_id, customer_name,
                 subtotal, tax_amount, discount_amount, total, payment_method, payment_amount,
-                change_amount, status, cashier_name
-              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'completed', ?)`,
+                change_amount, status, cashier_name, cash_received, qris_received
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'completed', ?, ?, ?)`,
               [
                 finalInvoice,
                 businessDate,
@@ -813,10 +859,12 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
                 taxAmount,
                 discountAmount,
                 total,
-                paymentMethod,
-                paymentAmount,
+                effectivePaymentMethod,
+                finalPaymentAmount,
                 change,
                 get().activeCashier || get().activeCashierName || 'Kasir',
+                splitCash,
+                splitQris,
               ]
             );
 
@@ -824,9 +872,9 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
 
             for (const item of cart) {
               await db.runAsync(
-                `INSERT INTO transaction_items (transaction_id, menu_id, menu_name, price, qty, subtotal, is_additional)
-                 VALUES (?, ?, ?, ?, ?, ?, 0)`,
-                [finalTxId, item.menu_id, item.name, item.price, item.qty, item.subtotal]
+                `INSERT INTO transaction_items (transaction_id, menu_id, menu_name, price, qty, subtotal, is_additional, notes)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                [finalTxId, item.menu_id, item.name, item.price, item.qty, item.subtotal, item.is_additional || 0, item.notes || '']
               );
             }
           }
@@ -849,12 +897,19 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
             );
           }
 
-          // Jika Tunai: Otomatis masuk ke Buku Kas Masuk (Penjualan Bersih) dengan tipe 'income'
-          if (paymentMethod === 'tunai') {
+          // Jika Tunai Murni: Masuk ke Buku Kas Masuk
+          if (effectivePaymentMethod === 'tunai') {
             await db.runAsync(
               `INSERT INTO cash_ledger (business_date, type, affects_pnl, category, amount, notes)
                VALUES (?, 'income', 1, 'penjualan_tunai', ?, ?)`,
               [businessDate, total, `Penjualan Nota ${finalInvoice} (${tableNumber})`]
+            );
+          } else if (hasSplit && splitCash > 0) {
+            // Porsi Tunai Split: Masuk ke Buku Kas Masuk (Laci Fisik)
+            await db.runAsync(
+              `INSERT INTO cash_ledger (business_date, type, affects_pnl, category, amount, notes)
+               VALUES (?, 'income', 1, 'penjualan_tunai', ?, ?)`,
+              [businessDate, splitCash, `Porsi Tunai Split Nota ${finalInvoice} (${tableNumber})`]
             );
           }
         })
@@ -869,10 +924,12 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
         txId: finalTxId,
         invoiceNumber: finalInvoice,
         total,
-        paymentAmount,
+        paymentAmount: finalPaymentAmount,
         change,
         dailySeq,
-        paymentMethod,
+        paymentMethod: effectivePaymentMethod,
+        cashReceived: splitCash,
+        qrisReceived: splitQris,
       };
     } catch (err) {
       set({ isCheckingOut: false });

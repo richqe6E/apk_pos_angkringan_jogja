@@ -39,6 +39,13 @@ export interface FinancialSummary {
   expenseByCategory: { category: string; total: number }[];
 }
 
+export interface TopSellingItem {
+  menu_name: string;
+  category_name: string;
+  total_qty: number;
+  total_omzet: number;
+}
+
 export type PeriodFilterMode = 'today' | '7days' | 'month' | 'custom_month' | 'custom_date';
 
 export interface FinancialPeriodQuery {
@@ -137,6 +144,7 @@ export interface CreateCashInput {
 interface FinancialState {
   cashEntries: CashEntry[];
   summary: FinancialSummary;
+  topSellingItems: TopSellingItem[];
   selectedMonth: string; // 'YYYY-MM'
   lastPeriodQuery?: FinancialPeriodQuery;
   isLoading: boolean;
@@ -145,6 +153,11 @@ interface FinancialState {
   loadFinancialData: (
     db: SQLiteDatabase,
     periodArg?: string | FinancialPeriodQuery
+  ) => Promise<void>;
+  loadTopSellingReport: (
+    db: SQLiteDatabase,
+    periodArg?: string | FinancialPeriodQuery,
+    sortBy?: 'qty' | 'omzet'
   ) => Promise<void>;
   addCashEntry: (db: SQLiteDatabase, input: CreateCashInput) => Promise<number>;
   deleteCashEntry: (db: SQLiteDatabase, id: number) => Promise<void>;
@@ -161,6 +174,7 @@ export const useFinancialStore = create<FinancialState>((set, get) => {
 
   return {
     cashEntries: [],
+    topSellingItems: [],
     selectedMonth: currentMonth,
     lastPeriodQuery: { mode: 'month' },
     isLoading: false,
@@ -382,6 +396,69 @@ export const useFinancialStore = create<FinancialState>((set, get) => {
       );
       const lastQuery = get().lastPeriodQuery;
       await get().loadFinancialData(db, lastQuery || periodMonth);
+    },
+
+    loadTopSellingReport: async (
+      db: SQLiteDatabase,
+      periodArg?: string | FinancialPeriodQuery,
+      sortBy: 'qty' | 'omzet' = 'qty'
+    ) => {
+      const today = getBusinessDate();
+      let mode: PeriodFilterMode = 'today';
+      let customVal: string | undefined = undefined;
+
+      if (!periodArg) {
+        mode = 'today';
+      } else if (typeof periodArg === 'string') {
+        if (periodArg.length === 7) {
+          mode = 'custom_month';
+          customVal = periodArg;
+        } else if (periodArg.length === 10) {
+          mode = 'custom_date';
+          customVal = periodArg;
+        } else {
+          mode = 'today';
+        }
+      } else {
+        mode = periodArg.mode || 'today';
+        customVal = mode === 'custom_date' ? periodArg.customDate : (periodArg.targetMonth || undefined);
+      }
+
+      const { whereSql, params } = buildPeriodSqlCondition(
+        mode,
+        today,
+        customVal,
+        't.business_date'
+      );
+
+      const orderByClause =
+        sortBy === 'omzet'
+          ? 'total_omzet DESC, total_qty DESC'
+          : 'total_qty DESC, total_omzet DESC';
+
+      try {
+        const rows = await withSqliteRetry(() =>
+          db.getAllAsync<TopSellingItem>(
+            `SELECT 
+               ti.menu_name, 
+               COALESCE(c.name, 'Lainnya') as category_name, 
+               SUM(ti.qty) as total_qty, 
+               SUM(ti.subtotal) as total_omzet
+             FROM transaction_items ti
+             JOIN transactions t ON t.id = ti.transaction_id
+             LEFT JOIN menus m ON m.id = ti.menu_id
+             LEFT JOIN categories c ON c.id = m.category_id
+             WHERE t.status = 'completed' AND ${whereSql}
+             GROUP BY ti.menu_name
+             ORDER BY ${orderByClause}`,
+            params
+          )
+        );
+        set({ topSellingItems: rows || [] });
+      } catch (err) {
+        console.error('Error loading top selling report:', err);
+        set({ topSellingItems: [] });
+      }
     },
   };
 });

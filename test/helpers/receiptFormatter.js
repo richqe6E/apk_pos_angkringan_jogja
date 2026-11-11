@@ -41,6 +41,9 @@ export function formatCustomerReceiptLines(data) {
         formatRupiah(item.subtotal, false)
       )
     );
+    if (item.notes && item.notes.trim()) {
+      lines.push(`  (${item.notes.trim()})`);
+    }
   }
   lines.push(DIVIDER_DASH);
 
@@ -55,9 +58,14 @@ export function formatCustomerReceiptLines(data) {
   lines.push(formatTotalLine('TOTAL', formatRupiah(data.total)));
 
   const methodUpper = String(data.paymentMethod || 'TUNAI').toUpperCase();
-  lines.push(formatTotalLine(`Bayar (${methodUpper})`, formatRupiah(data.paymentAmount)));
+  if (methodUpper === 'SPLIT') {
+    lines.push(formatTotalLine('Bayar (TUNAI)', formatRupiah(data.cashReceived || 0)));
+    lines.push(formatTotalLine('Bayar (QRIS)', formatRupiah(data.qrisReceived || 0)));
+  } else {
+    lines.push(formatTotalLine(`Bayar (${methodUpper})`, formatRupiah(data.paymentAmount)));
+  }
 
-  if (methodUpper === 'TUNAI') {
+  if (methodUpper === 'TUNAI' || (methodUpper === 'SPLIT' && (data.changeAmount || 0) > 0)) {
     lines.push(formatTotalLine('Kembalian', formatRupiah(data.changeAmount)));
   }
 
@@ -77,6 +85,9 @@ export function formatKitchenTicketLines(data) {
 
   for (const item of data.items) {
     lines.push(`[ x${item.qty} ] ${item.name}`);
+    if (item.notes && item.notes.trim()) {
+      lines.push(`  * Ket: ${item.notes.trim()}`);
+    }
   }
 
   lines.push(DIVIDER_EQUAL);
@@ -93,6 +104,9 @@ export function formatKitchenAdditionalTicketLines(data) {
 
   for (const item of data.additionalItems) {
     lines.push(`[ +${item.qty} ] ${item.name} (BARU)`);
+    if (item.notes && item.notes.trim()) {
+      lines.push(`  * Ket: ${item.notes.trim()}`);
+    }
   }
 
   lines.push(DIVIDER_EQUAL);

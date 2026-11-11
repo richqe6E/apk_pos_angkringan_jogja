@@ -73,7 +73,9 @@ export function createTestDb() {
       status TEXT NOT NULL DEFAULT 'completed',
       merged_into_tx_id INTEGER,
       created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
-      cashier_name TEXT NOT NULL DEFAULT 'Kasir'
+      cashier_name TEXT NOT NULL DEFAULT 'Kasir',
+      cash_received REAL NOT NULL DEFAULT 0,
+      qris_received REAL NOT NULL DEFAULT 0
     );
 
     -- 7. Item Detail Transaksi
@@ -86,6 +88,7 @@ export function createTestDb() {
       qty INTEGER NOT NULL,
       subtotal REAL NOT NULL,
       is_additional INTEGER NOT NULL DEFAULT 0,
+      notes TEXT DEFAULT '',
       created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
     );
 

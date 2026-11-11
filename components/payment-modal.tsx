@@ -8,6 +8,8 @@ import {
   Alert,
   ScrollView,
   Image,
+  TextInput,
+  Pressable,
 } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 import * as Haptics from 'expo-haptics';
@@ -18,7 +20,7 @@ import { Card } from './ui/card';
 import { Badge } from './ui/badge';
 import { AppIcon } from './ui/app-icon';
 import { ModalHeader } from './ui/modal-header';
-import { formatRupiahDisplay, formatRupiahInput } from '../utils/formatRupiah';
+import { formatRupiahDisplay, formatRupiahInput, parseRupiahInput } from '../utils/formatRupiah';
 
 export interface BankAccount {
   id: string;
@@ -37,7 +39,9 @@ interface PaymentModalProps {
     paymentAmount: number;
     change: number;
     dailySeq?: number;
-    paymentMethod: 'tunai' | 'qris' | 'transfer';
+    paymentMethod: 'tunai' | 'qris' | 'transfer' | 'split';
+    cashReceived?: number;
+    qrisReceived?: number;
   }) => void;
 }
 
@@ -65,6 +69,13 @@ export function PaymentModal({ visible, onClose, onSuccess }: PaymentModalProps)
   const [selectedBankId, setSelectedBankId] = useState<string | null>(null);
   const [copiedBankId, setCopiedBankId] = useState<string | null>(null);
 
+  // F2: Split Payment State (Model POS AZIZAH: Tunai Fisik + QRIS)
+  const [splitModalVisible, setSplitModalVisible] = useState(false);
+  const [isSplitActive, setIsSplitActive] = useState(false);
+  const [splitCash, setSplitCash] = useState(0);
+  const [splitQris, setSplitQris] = useState(0);
+  const [splitCashInput, setSplitCashInput] = useState('');
+
   const subtotal = getSubtotal();
   const tax = getTaxAmount();
   const total = getTotal();
@@ -79,6 +90,11 @@ export function PaymentModal({ visible, onClose, onSuccess }: PaymentModalProps)
       setAmountString('');
       setQrisFullScreenVisible(false);
       setCopiedBankId(null);
+      setIsSplitActive(false);
+      setSplitCash(0);
+      setSplitQris(0);
+      setSplitCashInput('');
+      setSplitModalVisible(false);
 
       // Load QRIS image path, bank accounts, and store name from settings table
       (async () => {
@@ -159,8 +175,47 @@ export function PaymentModal({ visible, onClose, onSuccess }: PaymentModalProps)
     setAmountString('');
   };
 
+  const handleOpenSplitModal = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    if (splitCash > 0) {
+      setSplitCashInput(formatRupiahInput(splitCash));
+    } else {
+      const half = Math.round(total / 2);
+      setSplitCash(half);
+      setSplitCashInput(formatRupiahInput(half));
+      setSplitQris(Math.max(0, total - half));
+    }
+    setSplitModalVisible(true);
+  };
+
+  const handleClearSplit = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setIsSplitActive(false);
+    setSplitCash(0);
+    setSplitQris(0);
+    setSplitCashInput('');
+  };
+
   // Submit Checkout
   const handleExecuteCheckout = async () => {
+    if (isSplitActive) {
+      if (splitCash + splitQris < total) {
+        Alert.alert(
+          'Pembayaran Kurang',
+          `Kombinasi Tunai + QRIS (${formatRupiahDisplay(splitCash + splitQris)}) masih kurang dari total tagihan (${formatRupiahDisplay(total)}).`
+        );
+        return;
+      }
+      try {
+        const res = await checkout(db, 'split', total, { cash: splitCash, qris: splitQris });
+        onClose();
+        onSuccess(res as any);
+      } catch (err: any) {
+        Alert.alert('Gagal Transaksi', err?.message || 'Terjadi kesalahan saat memproses pembayaran split.');
+      }
+      return;
+    }
+
     if (paymentMethod === 'tunai' && isShort) {
       Alert.alert(
         'Pembayaran Kurang',
@@ -174,7 +229,7 @@ export function PaymentModal({ visible, onClose, onSuccess }: PaymentModalProps)
     try {
       const res = await checkout(db, paymentMethod, finalAmount);
       onClose();
-      onSuccess(res);
+      onSuccess(res as any);
     } catch (err: any) {
       Alert.alert('Gagal Transaksi', err?.message || 'Terjadi kesalahan saat memproses pembayaran.');
     }
@@ -310,11 +365,51 @@ export function PaymentModal({ visible, onClose, onSuccess }: PaymentModalProps)
                     </Text>
                   </View>
                 </View>
+              ) : isSplitActive ? (
+                <View style={styles.splitBreakdownCard}>
+                  <View style={styles.splitBreakdownHeader}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <AppIcon name="check-circle" size={16} color={Colors.primaryDark} />
+                      <Text style={styles.splitBreakdownTitle}>Split Payment Aktif</Text>
+                    </View>
+                    <TouchableOpacity onPress={handleClearSplit} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                      <Text style={styles.splitCancelText}>Batalkan</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.splitRow}>
+                    <Text style={styles.splitLabel}>💵 Kas Fisik Laci (Tunai):</Text>
+                    <Text style={styles.splitValCash}>{formatRupiahDisplay(splitCash)}</Text>
+                  </View>
+                  <View style={styles.splitRow}>
+                    <Text style={styles.splitLabel}>📱 Rekening Bank (QRIS):</Text>
+                    <Text style={styles.splitValQris}>{formatRupiahDisplay(splitQris)}</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.splitEditBtn}
+                    onPress={handleOpenSplitModal}
+                    activeOpacity={0.7}
+                  >
+                    <AppIcon name="edit" size={13} color={Colors.primaryDark} />
+                    <Text style={styles.splitEditBtnText}>Ubah Porsi Nominal</Text>
+                  </TouchableOpacity>
+                </View>
               ) : (
                 <View style={styles.nonCashNotice}>
                   <Text style={styles.nonCashText}>
                     Pembayaran via <Text style={{ fontWeight: '700' }}>{paymentMethod.toUpperCase()}</Text> sebesar {formatRupiahDisplay(total)} diakui lunas secara otomatis tanpa kembalian uang fisik.
                   </Text>
+                  {paymentMethod === 'qris' && (
+                    <TouchableOpacity
+                      style={styles.splitTriggerBtn}
+                      onPress={handleOpenSplitModal}
+                      activeOpacity={0.7}
+                    >
+                      <AppIcon name="cash" size={16} color={Colors.primaryDark} />
+                      <Text style={styles.splitTriggerBtnText}>
+                        🔀 Campur Kas Fisik (Split Payment)
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               )}
             </View>
@@ -388,7 +483,8 @@ export function PaymentModal({ visible, onClose, onSuccess }: PaymentModalProps)
 
                     <View style={styles.qrisGuidanceBox}>
                       <Text style={styles.qrisGuidanceAmount}>
-                        Tagihan: <Text style={{ color: Colors.primaryDark }}>{formatRupiahDisplay(total)}</Text>
+                        Tagihan QRIS: <Text style={{ color: Colors.primaryDark }}>{formatRupiahDisplay(isSplitActive ? splitQris : total)}</Text>
+                        {isSplitActive && <Text style={{ fontSize: 11, color: Colors.primaryDark, fontWeight: '600' }}> (Porsi Split)</Text>}
                       </Text>
                       <Text style={styles.qrisGuidanceDesc}>
                         Pelanggan dapat melakukan scan menggunakan BCA, Mandiri, BRI, BNI, GoPay, OVO, ShopeePay & Dana.
@@ -528,13 +624,15 @@ export function PaymentModal({ visible, onClose, onSuccess }: PaymentModalProps)
               title={
                 isCheckingOut
                   ? 'Menyimpan Transaksi...'
+                  : isSplitActive
+                  ? `Selesaikan Pembayaran Split (${formatRupiahDisplay(splitCash + splitQris)})`
                   : `Selesaikan Pembayaran & Cetak Nota (${formatRupiahDisplay(total)})`
               }
               variant="primary"
               size="lg"
               style={{ flex: 2 }}
               loading={isCheckingOut}
-              disabled={isCheckingOut || (paymentMethod === 'tunai' && isShort)}
+              disabled={isCheckingOut || (!isSplitActive && paymentMethod === 'tunai' && isShort)}
               onPress={handleExecuteCheckout}
             />
           </View>
@@ -576,14 +674,138 @@ export function PaymentModal({ visible, onClose, onSuccess }: PaymentModalProps)
           )}
 
           <View style={styles.fullScreenAmountBox}>
-            <Text style={styles.fullScreenAmountLabel}>TOTAL PEMBAYARAN</Text>
-            <Text style={styles.fullScreenAmountValue}>{formatRupiahDisplay(total)}</Text>
+            <Text style={styles.fullScreenAmountLabel}>
+              {isSplitActive ? 'TOTAL PEMBAYARAN QRIS (SPLIT)' : 'TOTAL PEMBAYARAN'}
+            </Text>
+            <Text style={styles.fullScreenAmountValue}>
+              {formatRupiahDisplay(isSplitActive ? splitQris : total)}
+            </Text>
           </View>
 
           <Text style={styles.fullScreenGuideText}>
             Buka aplikasi Mobile Banking (BCA, Mandiri, BRI, BNI) atau E-Wallet (GoPay, OVO, ShopeePay, Dana) lalu scan barcode QRIS di atas.
           </Text>
         </View>
+      </View>
+    </Modal>
+
+    {/* Modal Split Payment (Model POS AZIZAH: Campur Kas Fisik & QRIS) */}
+    <Modal
+      visible={splitModalVisible}
+      transparent
+      animationType="fade"
+      onRequestClose={() => setSplitModalVisible(false)}
+    >
+      <View style={styles.splitModalOverlay}>
+        <Card style={styles.splitModalCard}>
+          <ModalHeader
+            title="Campur Kas Fisik (Split Payment)"
+            subtitle="Terima sebagian uang tunai, sisanya via QRIS"
+            icon="cash"
+            onClose={() => setSplitModalVisible(false)}
+          />
+
+          <View style={styles.splitModalBody}>
+            <View style={styles.splitTotalBox}>
+              <Text style={styles.splitTotalLabel}>Total Tagihan Belanja</Text>
+              <Text style={styles.splitTotalAmount}>{formatRupiahDisplay(total)}</Text>
+            </View>
+
+            {/* Input Tunai Fisik (Laci) */}
+            <View style={styles.splitInputContainer}>
+              <View style={styles.splitInputHeader}>
+                <Text style={styles.splitInputTitle}>💵 Uang Tunai Fisik (Masuk ke Laci)</Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    const half = Math.round(total / 2);
+                    setSplitCash(half);
+                    setSplitCashInput(formatRupiahInput(half));
+                    const rem = Math.max(0, total - half);
+                    setSplitQris(rem);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.halfBtnText}>½ Bagi Dua</Text>
+                </TouchableOpacity>
+              </View>
+
+              <TextInput
+                value={splitCashInput}
+                onChangeText={(val) => {
+                  const formatted = formatRupiahInput(val);
+                  setSplitCashInput(formatted);
+                  const cashVal = parseRupiahInput(formatted);
+                  setSplitCash(cashVal);
+                  setSplitQris(Math.max(0, total - cashVal));
+                }}
+                placeholder="0"
+                placeholderTextColor={Colors.placeholder}
+                keyboardType="numeric"
+                style={styles.splitTextInput}
+              />
+
+              {/* Quick Chips */}
+              <View style={styles.splitChipsRow}>
+                {[10000, 20000, 50000, 100000].map((amt) => (
+                  <TouchableOpacity
+                    key={amt}
+                    style={styles.splitChip}
+                    onPress={() => {
+                      const cur = parseRupiahInput(splitCashInput) || 0;
+                      const next = cur + amt;
+                      setSplitCash(next);
+                      setSplitCashInput(formatRupiahInput(next));
+                      setSplitQris(Math.max(0, total - next));
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.splitChipText}>+{amt.toLocaleString('id-ID')}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Sisa QRIS Otomatis */}
+            <View style={styles.splitQrisResultBox}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.splitQrisResultTitle}>📱 Sisa Tagihan QRIS (Masuk ke Bank)</Text>
+                <Text style={styles.splitQrisResultSub}>Dihitung otomatis oleh sistem</Text>
+              </View>
+              <Text style={styles.splitQrisResultAmount}>
+                {formatRupiahDisplay(Math.max(0, total - (parseRupiahInput(splitCashInput) || 0)))}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.splitModalFooter}>
+            <Button
+              title="Batal"
+              variant="ghost"
+              size="md"
+              style={{ flex: 1 }}
+              onPress={() => setSplitModalVisible(false)}
+            />
+            <Button
+              title="Terapkan Split"
+              variant="primary"
+              size="md"
+              style={{ flex: 1.5 }}
+              disabled={
+                (parseRupiahInput(splitCashInput) || 0) <= 0 ||
+                (parseRupiahInput(splitCashInput) || 0) >= total
+              }
+              onPress={() => {
+                const cashNum = parseRupiahInput(splitCashInput);
+                const qrisNum = Math.max(0, total - cashNum);
+                setSplitCash(cashNum);
+                setSplitQris(qrisNum);
+                setIsSplitActive(true);
+                setPaymentMethod('qris');
+                setSplitModalVisible(false);
+              }}
+            />
+          </View>
+        </Card>
       </View>
     </Modal>
   </>
@@ -1139,6 +1361,215 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     textAlign: 'center',
     lineHeight: 16,
+  },
+
+  // Split Payment Styles (POS AZIZAH Adaptation)
+  splitTriggerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    backgroundColor: Colors.primarySoft,
+    borderWidth: 1.5,
+    borderColor: Colors.primary,
+    gap: 8,
+  },
+  splitTriggerBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.primaryDark,
+  },
+  splitBreakdownCard: {
+    marginTop: 10,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#f0fdf4',
+    borderWidth: 1.5,
+    borderColor: '#86efac',
+  },
+  splitBreakdownHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+    paddingBottom: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#bbf7d0',
+  },
+  splitBreakdownTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: Colors.primaryDark,
+  },
+  splitCancelText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.danger,
+  },
+  splitRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  splitLabel: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    fontWeight: '500',
+  },
+  splitValCash: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#065f46',
+  },
+  splitValQris: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0284c7',
+  },
+  splitEditBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: 'rgba(5, 150, 105, 0.12)',
+    gap: 6,
+  },
+  splitEditBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.primaryDark,
+  },
+
+  // Sub-Modal Split Styles
+  splitModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  splitModalCard: {
+    width: '100%',
+    maxWidth: 480,
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  splitModalBody: {
+    padding: 16,
+  },
+  splitTotalBox: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: '#f8fafc',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    marginBottom: 12,
+  },
+  splitTotalLabel: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    fontWeight: '600',
+  },
+  splitTotalAmount: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: Colors.primaryDark,
+  },
+  splitInputContainer: {
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#f0fdf4',
+    borderWidth: 1.5,
+    borderColor: '#10b981',
+    marginBottom: 12,
+  },
+  splitInputHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  splitInputTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#065f46',
+  },
+  halfBtnText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#059669',
+  },
+  splitTextInput: {
+    height: 44,
+    borderWidth: 1,
+    borderColor: '#86efac',
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#065f46',
+    backgroundColor: '#ffffff',
+  },
+  splitChipsRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 8,
+    flexWrap: 'wrap',
+  },
+  splitChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#10b981',
+  },
+  splitChipText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#065f46',
+  },
+  splitQrisResultBox: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: '#f0f9ff',
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: '#bae6fd',
+  },
+  splitQrisResultTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0369a1',
+  },
+  splitQrisResultSub: {
+    fontSize: 10,
+    color: Colors.textMuted,
+  },
+  splitQrisResultAmount: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#0284c7',
+  },
+  splitModalFooter: {
+    flexDirection: 'row',
+    padding: 14,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+    backgroundColor: '#f8fafc',
+    gap: 10,
   },
 });
 

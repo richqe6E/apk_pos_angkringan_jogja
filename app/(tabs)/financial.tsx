@@ -32,7 +32,7 @@ import { exportTableToPdf } from '../../services/export';
 import { exportFinancialReportCsv } from '../../services/backup';
 import { getBusinessDate } from '../../utils/sessionHelper';
 
-type FinancialTab = 'pnl' | 'ledger';
+type FinancialTab = 'pnl' | 'ledger' | 'top_sellers';
 type PeriodFilterType = 'today' | '7days' | 'month' | 'custom';
 type CustomSelectorMode = 'month' | 'date';
 
@@ -43,14 +43,17 @@ export default function FinancialScreen() {
   const {
     cashEntries,
     summary,
+    topSellingItems,
     selectedMonth,
     isLoading,
     setSelectedMonth,
     loadFinancialData,
+    loadTopSellingReport,
     deleteCashEntry,
   } = useFinancialStore();
 
   const [activeTab, setActiveTab] = useState<FinancialTab>('pnl');
+  const [topSellerSort, setTopSellerSort] = useState<'qty' | 'omzet'>('qty');
   const [periodFilter, setPeriodFilter] = useState<PeriodFilterType>('month');
   const [customMode, setCustomMode] = useState<CustomSelectorMode>('month');
   const [customMonth, setCustomMonth] = useState<string>(selectedMonth || todayBizDate.substring(0, 7));
@@ -63,21 +66,24 @@ export default function FinancialScreen() {
 
   useEffect(() => {
     refreshData();
-  }, [db, periodFilter, customMode, customMonth, customDate]);
+  }, [db, periodFilter, customMode, customMonth, customDate, topSellerSort]);
 
   const refreshData = () => {
+    let query: { mode: 'today' | '7days' | 'month' | 'custom_month' | 'custom_date'; targetMonth?: string; customDate?: string };
     if (periodFilter === 'today') {
-      loadFinancialData(db, { mode: 'today' });
+      query = { mode: 'today' };
     } else if (periodFilter === '7days') {
-      loadFinancialData(db, { mode: '7days' });
+      query = { mode: '7days' };
     } else if (periodFilter === 'month') {
-      loadFinancialData(db, { mode: 'month' });
+      query = { mode: 'month' };
     } else if (customMode === 'month') {
       setSelectedMonth(customMonth);
-      loadFinancialData(db, { mode: 'custom_month', targetMonth: customMonth });
+      query = { mode: 'custom_month', targetMonth: customMonth };
     } else {
-      loadFinancialData(db, { mode: 'custom_date', customDate: customDate });
+      query = { mode: 'custom_date', customDate: customDate };
     }
+    loadFinancialData(db, query);
+    loadTopSellingReport(db, query, topSellerSort);
   };
 
   const handlePrevMonth = () => {
@@ -338,6 +344,165 @@ export default function FinancialScreen() {
     </View>
   );
 
+  const renderTopSellersTab = () => {
+    const totalQtyAll = topSellingItems.reduce((acc, it) => acc + it.total_qty, 0);
+    const totalOmzetAll = topSellingItems.reduce((acc, it) => acc + it.total_omzet, 0);
+    const maxVal =
+      topSellerSort === 'qty'
+        ? topSellingItems[0]?.total_qty || 1
+        : topSellingItems[0]?.total_omzet || 1;
+
+    return (
+      <View style={styles.topSellersContainer}>
+        {/* Kontrol & Toggle Urutan */}
+        <View style={styles.topSellersControls}>
+          <View style={styles.topSellersMeta}>
+            <Text style={styles.topSellersTitle}>Peringkat Menu ({summary.periodMonth})</Text>
+            <Text style={styles.topSellersSub}>
+              Total {topSellingItems.length} menu terjual • {totalQtyAll} porsi • {formatRupiahDisplay(totalOmzetAll)}
+            </Text>
+          </View>
+
+          <View style={styles.sortToggleGroup}>
+            <TouchableOpacity
+              style={[styles.sortChip, topSellerSort === 'qty' && styles.sortChipActive]}
+              onPress={() => setTopSellerSort('qty')}
+            >
+              <AppIcon name="star" size={13} color={topSellerSort === 'qty' ? '#ffffff' : Colors.textMuted} />
+              <Text style={[styles.sortChipText, topSellerSort === 'qty' && styles.sortChipTextActive]}>
+                Paling Laris (Qty)
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.sortChip, topSellerSort === 'omzet' && styles.sortChipActive]}
+              onPress={() => setTopSellerSort('omzet')}
+            >
+              <AppIcon name="cash" size={13} color={topSellerSort === 'omzet' ? '#ffffff' : Colors.textMuted} />
+              <Text style={[styles.sortChipText, topSellerSort === 'omzet' && styles.sortChipTextActive]}>
+                Omset Terbesar (Rp)
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Highlight 3 Juara Teratas */}
+        {topSellingItems.length > 0 && (
+          <View style={styles.topSellersHeroRow}>
+            <Card style={[styles.topSellerHeroCard, { borderColor: '#f59e0b', backgroundColor: '#fffbeb' }]}>
+              <View style={styles.heroRankBadge}>
+                <Text style={styles.heroRankText}>🥇 JUARA 1</Text>
+              </View>
+              <Text style={styles.heroMenuName} numberOfLines={1}>
+                {topSellingItems[0].menu_name}
+              </Text>
+              <Text style={styles.heroMenuStats}>
+                {topSellingItems[0].total_qty} terjual • {formatRupiahDisplay(topSellingItems[0].total_omzet)}
+              </Text>
+            </Card>
+
+            {topSellingItems.length > 1 && (
+              <Card style={[styles.topSellerHeroCard, { borderColor: '#94a3b8', backgroundColor: '#f8fafc' }]}>
+                <View style={[styles.heroRankBadge, { backgroundColor: '#64748b' }]}>
+                  <Text style={styles.heroRankText}>🥈 JUARA 2</Text>
+                </View>
+                <Text style={styles.heroMenuName} numberOfLines={1}>
+                  {topSellingItems[1].menu_name}
+                </Text>
+                <Text style={styles.heroMenuStats}>
+                  {topSellingItems[1].total_qty} terjual • {formatRupiahDisplay(topSellingItems[1].total_omzet)}
+                </Text>
+              </Card>
+            )}
+
+            {topSellingItems.length > 2 && (
+              <Card style={[styles.topSellerHeroCard, { borderColor: '#d97706', backgroundColor: '#fff7ed' }]}>
+                <View style={[styles.heroRankBadge, { backgroundColor: '#b45309' }]}>
+                  <Text style={styles.heroRankText}>🥉 JUARA 3</Text>
+                </View>
+                <Text style={styles.heroMenuName} numberOfLines={1}>
+                  {topSellingItems[2].menu_name}
+                </Text>
+                <Text style={styles.heroMenuStats}>
+                  {topSellingItems[2].total_qty} terjual • {formatRupiahDisplay(topSellingItems[2].total_omzet)}
+                </Text>
+              </Card>
+            )}
+          </View>
+        )}
+
+        {/* Daftar Seluruh Item Terjual */}
+        <FlatList
+          data={topSellingItems}
+          keyExtractor={(item, index) => `${item.menu_name}-${index}`}
+          contentContainerStyle={{ padding: 16, paddingBottom: 32, gap: 8 }}
+          ListEmptyComponent={
+            <View style={styles.emptyBox}>
+              <AppIcon name="tag" size={40} color={Colors.textMuted} style={{ marginBottom: 8 }} />
+              <Text style={styles.emptyText}>Belum ada data penjualan menu pada periode ini.</Text>
+            </View>
+          }
+          renderItem={({ item, index }) => {
+            const rank = index + 1;
+            const rankColor =
+              rank === 1 ? '#f59e0b' : rank === 2 ? '#64748b' : rank === 3 ? '#b45309' : Colors.border;
+            const rankBg =
+              rank === 1 ? '#fef3c7' : rank === 2 ? '#f1f5f9' : rank === 3 ? '#ffedd5' : '#f8fafc';
+            const rankTextColor =
+              rank === 1 ? '#92400e' : rank === 2 ? '#334155' : rank === 3 ? '#9a3412' : Colors.textMuted;
+
+            const progressVal = topSellerSort === 'qty' ? item.total_qty : item.total_omzet;
+            const progressPercent = Math.min(100, Math.max(5, Math.round((progressVal / maxVal) * 100)));
+
+            return (
+              <Card style={styles.topSellerCard}>
+                <View style={styles.topSellerRow}>
+                  {/* Nomor Peringkat */}
+                  <View style={[styles.rankBox, { backgroundColor: rankBg, borderColor: rankColor }]}>
+                    <Text style={[styles.rankNumber, { color: rankTextColor }]}>#{rank}</Text>
+                  </View>
+
+                  {/* Info Menu & Progress Bar */}
+                  <View style={{ flex: 1, paddingHorizontal: 12 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                      <Text style={styles.topSellerName}>{item.menu_name}</Text>
+                      <View style={styles.categoryBadge}>
+                        <Text style={styles.categoryBadgeText}>{item.category_name}</Text>
+                      </View>
+                    </View>
+
+                    {/* Progress Bar Visualisasi Penjualan */}
+                    <View style={styles.progressBarTrack}>
+                      <View
+                        style={[
+                          styles.progressBarFill,
+                          {
+                            width: `${progressPercent}%`,
+                            backgroundColor: rank === 1 ? Colors.primary : Colors.primaryLight || '#10b981',
+                          },
+                        ]}
+                      />
+                    </View>
+                  </View>
+
+                  {/* Statistik Qty & Omzet */}
+                  <View style={{ alignItems: 'flex-end', minWidth: 100 }}>
+                    <Text style={styles.topSellerQtyText}>
+                      <Text style={{ fontWeight: '800', color: Colors.text }}>{item.total_qty}</Text> terjual
+                    </Text>
+                    <Text style={styles.topSellerOmzetText}>
+                      {formatRupiahDisplay(item.total_omzet)}
+                    </Text>
+                  </View>
+                </View>
+              </Card>
+            );
+          }}
+        />
+      </View>
+    );
+  };
+
   return (
     <View style={styles.container}>
       {/* Top Header */}
@@ -568,7 +733,16 @@ export default function FinancialScreen() {
           onPress={() => setActiveTab('pnl')}
         >
           <Text style={[styles.tabText, activeTab === 'pnl' && styles.tabTextActive]}>
-            Laporan Laba Rugi Operasional
+            Laba Rugi Operasional
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tabBtn, activeTab === 'top_sellers' && styles.tabBtnActive]}
+          onPress={() => setActiveTab('top_sellers')}
+        >
+          <Text style={[styles.tabText, activeTab === 'top_sellers' && styles.tabTextActive]}>
+            🏆 Menu Terlaris ({topSellingItems.length})
           </Text>
         </TouchableOpacity>
 
@@ -592,6 +766,7 @@ export default function FinancialScreen() {
         ) : (
           <>
             {activeTab === 'pnl' && renderPnlTab()}
+            {activeTab === 'top_sellers' && renderTopSellersTab()}
             {activeTab === 'ledger' && renderLedgerTab()}
           </>
         )}
@@ -1058,5 +1233,152 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 14,
     color: Colors.textMuted,
+  },
+  topSellersContainer: {
+    flex: 1,
+  },
+  topSellersControls: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  topSellersMeta: {
+    flex: 1,
+  },
+  topSellersTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: Colors.text,
+  },
+  topSellersSub: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    marginTop: 2,
+  },
+  sortToggleGroup: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  sortChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: '#ffffff',
+  },
+  sortChipActive: {
+    backgroundColor: Colors.primaryDark,
+    borderColor: Colors.primaryDark,
+  },
+  sortChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+  sortChipTextActive: {
+    color: '#ffffff',
+    fontWeight: '700',
+  },
+  topSellersHeroRow: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
+  topSellerHeroCard: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1.5,
+  },
+  heroRankBadge: {
+    backgroundColor: '#f59e0b',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+    alignSelf: 'flex-start',
+    marginBottom: 6,
+  },
+  heroRankText: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  heroMenuName: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: Colors.text,
+    marginBottom: 2,
+  },
+  heroMenuStats: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    fontWeight: '600',
+  },
+  topSellerCard: {
+    padding: 12,
+  },
+  topSellerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  rankBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rankNumber: {
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  topSellerName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.text,
+  },
+  categoryBadge: {
+    backgroundColor: Colors.borderLight,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  categoryBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: Colors.textMuted,
+  },
+  progressBarTrack: {
+    height: 6,
+    backgroundColor: Colors.borderLight,
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginTop: 4,
+    width: '100%',
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  topSellerQtyText: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+  },
+  topSellerOmzetText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: Colors.primaryDark,
+    marginTop: 2,
   },
 });

@@ -9,6 +9,7 @@ import {
   FlatList,
   Alert,
   Image,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
@@ -20,7 +21,7 @@ import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { MenuItem, useMenuStore } from '../stores/menuStore';
-import { useTransactionStore } from '../stores/transactionStore';
+import { CartItem, useTransactionStore } from '../stores/transactionStore';
 import { formatRupiahDisplay } from '../utils/formatRupiah';
 
 // Modals
@@ -32,6 +33,7 @@ import { ReceiptPreviewModal } from '../components/receipt-preview-modal';
 import { PrinterManagementModal } from '../components/printer-management-modal';
 import { CashierSelectorModal } from '../components/cashier-selector-modal';
 import { QuickEditModal } from '../components/quick-edit-modal';
+import { ItemNotesModal } from '../components/item-notes-modal';
 import {
   PrintReceiptData,
   autoRoutePrint,
@@ -40,6 +42,47 @@ import {
   printTemporaryBill,
 } from '../services/print';
 import { formatFullIndonesianDate, formatRealtimeClock, getBusinessDate } from '../utils/sessionHelper';
+
+interface MenuCardProps {
+  item: MenuItem;
+  onPress: (item: MenuItem) => void;
+  onLongPress: (item: MenuItem) => void;
+}
+
+const MemoizedMenuCard = React.memo(({ item, onPress, onLongPress }: MenuCardProps) => {
+  return (
+    <TouchableOpacity
+      style={styles.menuCard}
+      activeOpacity={0.7}
+      onPress={() => onPress(item)}
+      onLongPress={() => onLongPress(item)}
+      delayLongPress={200}
+    >
+      <View style={styles.menuImageContainer}>
+        {item.image_path ? (
+          <Image source={{ uri: item.image_path }} style={styles.menuImage} />
+        ) : (
+          <View style={styles.menuImagePlaceholder}>
+            <AppIcon name="cart" size={26} color={Colors.textMuted} />
+          </View>
+        )}
+        {item.track_stock === 1 && (
+          <View style={styles.stockBadge}>
+            <Text style={styles.stockBadgeText}>Stok: {item.stock}</Text>
+          </View>
+        )}
+      </View>
+      <View style={styles.menuInfoContainer}>
+        <Text style={styles.menuName} numberOfLines={2}>
+          {item.name}
+        </Text>
+        <Text style={styles.menuPrice}>
+          {formatRupiahDisplay(item.price)}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+});
 
 export default function TransaksiScreen() {
   const router = useRouter();
@@ -70,6 +113,7 @@ export default function TransaksiScreen() {
     loadStoreSettings,
     addToCart,
     updateCartQty,
+    updateCartItemNotes,
     removeFromCart,
     clearCart,
     getSubtotal,
@@ -92,6 +136,8 @@ export default function TransaksiScreen() {
   const [receiptPreviewTab, setReceiptPreviewTab] = useState<'customer' | 'kitchen' | 'temp_bill'>('customer');
   const [lastReceiptData, setLastReceiptData] = useState<PrintReceiptData | null>(null);
   const [selectedMenuForEdit, setSelectedMenuForEdit] = useState<MenuItem | null>(null);
+  const [notesModalVisible, setNotesModalVisible] = useState(false);
+  const [selectedCartItemForNotes, setSelectedCartItemForNotes] = useState<CartItem | null>(null);
 
   // Inisialisasi data
   useEffect(() => {
@@ -143,6 +189,7 @@ export default function TransaksiScreen() {
             qty: d.qty,
             subtotal: d.subtotal,
             is_additional: 1,
+            notes: d.notes,
           })),
         }).catch((err) => console.warn('Gagal cetak tiket sambungan dapur:', err));
 
@@ -163,6 +210,7 @@ export default function TransaksiScreen() {
             qty: i.qty,
             subtotal: i.subtotal,
             is_additional: 0,
+            notes: i.notes,
           })),
         }).catch((err) => console.warn('Gagal cetak tiket dapur:', err));
 
@@ -214,6 +262,7 @@ export default function TransaksiScreen() {
           qty: i.qty,
           subtotal: i.subtotal,
           is_additional: i.is_additional,
+          notes: i.notes,
         })),
         subtotal,
         taxAmount: tax,
@@ -337,60 +386,39 @@ export default function TransaksiScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Grid Katalog Menu */}
-          <ScrollView contentContainerStyle={styles.menuGridContainer}>
-            {filteredMenus.length === 0 ? (
-              <View style={styles.emptyGridContainer}>
-                <Text style={styles.emptyGridText}>Tidak ada menu yang sesuai dengan pencarian.</Text>
-              </View>
-            ) : (
-              <View style={styles.menuGrid}>
-                {filteredMenus.map((item) => (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={styles.menuCard}
-                    activeOpacity={0.7}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-                      addToCart(item);
-                    }}
-                    onLongPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-                      setSelectedMenuForEdit(item);
-                      setQuickEditModalVisible(true);
-                    }}
-                    delayLongPress={200}
-                  >
-                    {/* Wadah Foto Menu Bersih */}
-                    <View style={styles.menuImageContainer}>
-                      {item.image_path ? (
-                        <Image source={{ uri: item.image_path }} style={styles.menuImage} />
-                      ) : (
-                        <View style={styles.menuImagePlaceholder}>
-                          <AppIcon name="cart" size={26} color={Colors.textMuted} />
-                        </View>
-                      )}
-                      {item.track_stock === 1 && (
-                        <View style={styles.stockBadge}>
-                          <Text style={styles.stockBadgeText}>Stok: {item.stock}</Text>
-                        </View>
-                      )}
-                    </View>
-
-                    {/* Informasi Menu */}
-                    <View style={styles.menuInfoContainer}>
-                      <Text style={styles.menuName} numberOfLines={2}>
-                        {item.name}
-                      </Text>
-                      <Text style={styles.menuPrice}>
-                        {formatRupiahDisplay(item.price)}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-          </ScrollView>
+          {/* Grid Katalog Menu (Tervirtualisasi untuk Efisiensi RAM 4GB) */}
+          {filteredMenus.length === 0 ? (
+            <View style={styles.emptyGridContainer}>
+              <Text style={styles.emptyGridText}>Tidak ada menu yang sesuai dengan pencarian.</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={filteredMenus}
+              keyExtractor={(item) => String(item.id)}
+              renderItem={({ item }) => (
+                <MemoizedMenuCard
+                  item={item}
+                  onPress={(m) => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+                    addToCart(m);
+                  }}
+                  onLongPress={(m) => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+                    setSelectedMenuForEdit(m);
+                    setQuickEditModalVisible(true);
+                  }}
+                />
+              )}
+              numColumns={3}
+              key="catalog-grid-3cols"
+              columnWrapperStyle={styles.menuGridRow}
+              contentContainerStyle={styles.menuGridContainer}
+              initialNumToRender={12}
+              maxToRenderPerBatch={12}
+              windowSize={5}
+              removeClippedSubviews={Platform.OS !== 'web'}
+            />
+          )}
 
           {/* Baris Kategori Horizontal di Bagian Bawah */}
           <View style={styles.bottomCategoryBar}>
@@ -486,7 +514,7 @@ export default function TransaksiScreen() {
             ) : (
               cart.map((item) => (
                 <View key={item.id} style={styles.cartRow}>
-                  {/* Nama & Harga Satuan */}
+                  {/* Nama, Harga Satuan & Tombol Catatan */}
                   <View style={{ flex: 2, paddingRight: 6 }}>
                     <Text style={styles.cartItemName} numberOfLines={2}>
                       {item.name}
@@ -497,6 +525,28 @@ export default function TransaksiScreen() {
                         <Text style={{ color: Colors.warning, fontWeight: '700' }}> (Tambahan)</Text>
                       )}
                     </Text>
+
+                    {/* Tombol Catatan Per Item */}
+                    <TouchableOpacity
+                      style={[styles.cartNoteBtn, item.notes ? styles.cartNoteBtnActive : null]}
+                      onPress={() => {
+                        setSelectedCartItemForNotes(item);
+                        setNotesModalVisible(true);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <AppIcon
+                        name="edit"
+                        size={11}
+                        color={item.notes ? Colors.primaryDark : Colors.textMuted}
+                      />
+                      <Text
+                        style={[styles.cartNoteBtnText, item.notes ? styles.cartNoteBtnTextActive : null]}
+                        numberOfLines={1}
+                      >
+                        {item.notes ? item.notes : '+ Catatan'}
+                      </Text>
+                    </TouchableOpacity>
                   </View>
 
                   {/* Stepper Qty [-] Qty [+] */}
@@ -648,6 +698,7 @@ export default function TransaksiScreen() {
               qty: i.qty,
               subtotal: i.subtotal,
               is_additional: i.is_additional,
+              notes: i.notes,
             })),
             subtotal,
             taxAmount: tax,
@@ -655,6 +706,8 @@ export default function TransaksiScreen() {
             paymentMethod: result.paymentMethod || 'tunai',
             paymentAmount: result.paymentAmount,
             changeAmount: result.change,
+            cashReceived: result.cashReceived,
+            qrisReceived: result.qrisReceived,
           };
 
           setLastReceiptData(receiptPayload);
@@ -681,6 +734,18 @@ export default function TransaksiScreen() {
       <PrinterManagementModal
         visible={printerModalVisible}
         onClose={() => setPrinterModalVisible(false)}
+      />
+
+      <ItemNotesModal
+        visible={notesModalVisible}
+        itemName={selectedCartItemForNotes?.name || ''}
+        initialNotes={selectedCartItemForNotes?.notes || ''}
+        onClose={() => setNotesModalVisible(false)}
+        onSave={(notes) => {
+          if (selectedCartItemForNotes) {
+            updateCartItemNotes(selectedCartItemForNotes.id, notes);
+          }
+        }}
       />
     </View>
   );
@@ -779,7 +844,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   leftCatalogPanel: {
-    flex: 6.5,
+    flex: 5.4, // Terkalibrasi untuk Samsung Galaxy Tab A9 (8.7 inci): rasio lega 54% katalog : 46% keranjang
     borderRightWidth: 1,
     borderRightColor: Colors.border,
     backgroundColor: Colors.background,
@@ -846,13 +911,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.textMuted,
   },
-  menuGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
+  menuGridRow: {
+    gap: 8,
+    marginBottom: 8,
   },
   menuCard: {
-    width: '23.8%', // ~4 kolom pada tablet
+    flex: 1,
     backgroundColor: '#ffffff',
     borderRadius: 8,
     borderWidth: 1,
@@ -937,7 +1001,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   rightCartPanel: {
-    flex: 3.5,
+    flex: 4.6,
     backgroundColor: '#ffffff',
     display: 'flex',
     flexDirection: 'column',
@@ -1011,17 +1075,44 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     marginTop: 2,
   },
+  cartNoteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: Colors.borderLight,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginTop: 5,
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: Colors.border,
+    maxWidth: '95%',
+  },
+  cartNoteBtnActive: {
+    backgroundColor: Colors.primarySoft,
+    borderColor: Colors.primary,
+  },
+  cartNoteBtnText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Colors.textMuted,
+  },
+  cartNoteBtnTextActive: {
+    color: Colors.primaryDark,
+    fontWeight: '700',
+  },
   qtyStepper: {
-    width: 90,
+    width: 96,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
   },
   qtyBtn: {
-    width: 26,
-    height: 26,
-    borderRadius: 4,
+    width: 32,
+    height: 32,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: Colors.border,
     alignItems: 'center',

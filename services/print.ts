@@ -26,6 +26,7 @@ export interface PrintOrderItem {
   qty: number;
   subtotal: number;
   is_additional?: number;
+  notes?: string;
 }
 
 export interface PrintReceiptData {
@@ -47,6 +48,8 @@ export interface PrintReceiptData {
   paymentMethod: string;
   paymentAmount: number;
   changeAmount: number;
+  cashReceived?: number;
+  qrisReceived?: number;
 }
 
 /**
@@ -92,6 +95,9 @@ export async function printCustomerReceipt(data: PrintReceiptData): Promise<void
       formatRupiahDisplay(item.subtotal, false)
     );
     await BluetoothEscposPrinter.printText(`${line}\n\r`, {});
+    if (item.notes && item.notes.trim().length > 0) {
+      await BluetoothEscposPrinter.printText(`  * ${item.notes.trim()}\n\r`, {});
+    }
   }
 
   await BluetoothEscposPrinter.printText(`${DIVIDER_DASH}\n\r`, {});
@@ -125,16 +131,30 @@ export async function printCustomerReceipt(data: PrintReceiptData): Promise<void
     }
   );
 
-  await BluetoothEscposPrinter.printText(
-    `${formatTotalLine('Bayar (' + data.paymentMethod.toUpperCase() + ')', formatRupiahDisplay(data.paymentAmount))}\n\r`,
-    {}
-  );
-  if (data.paymentMethod.toLowerCase() === 'tunai') {
+  const hasSplitPayment =
+    data.paymentMethod.toLowerCase() === 'split' ||
+    ((data.cashReceived ?? 0) > 0 && (data.qrisReceived ?? 0) > 0);
+
+  if (hasSplitPayment) {
     await BluetoothEscposPrinter.printText(
-      `${formatTotalLine('Kembalian', formatRupiahDisplay(data.changeAmount))}\n\r`,
+      `${formatTotalLine('Bayar (TUNAI)', formatRupiahDisplay(data.cashReceived || 0))}\n\r`,
+      {}
+    );
+    await BluetoothEscposPrinter.printText(
+      `${formatTotalLine('Bayar (QRIS)', formatRupiahDisplay(data.qrisReceived || 0))}\n\r`,
+      {}
+    );
+  } else {
+    await BluetoothEscposPrinter.printText(
+      `${formatTotalLine('Bayar (' + data.paymentMethod.toUpperCase() + ')', formatRupiahDisplay(data.paymentAmount))}\n\r`,
       {}
     );
   }
+
+  await BluetoothEscposPrinter.printText(
+    `${formatTotalLine('Kembalian', formatRupiahDisplay(data.changeAmount))}\n\r`,
+    {}
+  );
 
   await BluetoothEscposPrinter.printText(`${DIVIDER_EQUAL}\n\r`, {});
 
@@ -208,6 +228,15 @@ export async function printKitchenTicket(data: {
       heigthtimes: 1, // Tulisan lebih tinggi agar koki/pembuat wedang mudah membaca
       fonttype: 1,
     });
+    if (item.notes && item.notes.trim().length > 0) {
+      await BluetoothEscposPrinter.printText(`  * Ket: ${item.notes.trim()}\n\r`, {
+        encoding: 'GBK',
+        codepage: 0,
+        widthtimes: 0,
+        heigthtimes: 0,
+        fonttype: 1,
+      });
+    }
   }
 
   await BluetoothEscposPrinter.printText(`${DIVIDER_EQUAL}\n\r`, {});
@@ -275,6 +304,15 @@ export async function printKitchenAdditionalTicket(data: {
       heigthtimes: 1,
       fonttype: 1,
     });
+    if (item.notes && item.notes.trim().length > 0) {
+      await BluetoothEscposPrinter.printText(`  * Ket: ${item.notes.trim()}\n\r`, {
+        encoding: 'GBK',
+        codepage: 0,
+        widthtimes: 0,
+        heigthtimes: 0,
+        fonttype: 1,
+      });
+    }
   }
 
   await BluetoothEscposPrinter.printText(`${DIVIDER_EQUAL}\n\r`, {});
@@ -314,6 +352,9 @@ export function formatCustomerReceiptLines(data: PrintReceiptData): string[] {
         formatRupiahDisplay(item.subtotal, false)
       )
     );
+    if (item.notes && item.notes.trim().length > 0) {
+      lines.push(`  * ${item.notes.trim()}`);
+    }
   }
   lines.push(DIVIDER_DASH);
 
@@ -327,12 +368,19 @@ export function formatCustomerReceiptLines(data: PrintReceiptData): string[] {
   }
   lines.push(formatTotalLine('TOTAL', formatRupiahDisplay(data.total)));
 
-  const methodUpper = String(data.paymentMethod || 'TUNAI').toUpperCase();
-  lines.push(formatTotalLine(`Bayar (${methodUpper})`, formatRupiahDisplay(data.paymentAmount)));
+  const isSplitReceipt =
+    String(data.paymentMethod || '').toLowerCase() === 'split' ||
+    ((data.cashReceived ?? 0) > 0 && (data.qrisReceived ?? 0) > 0);
 
-  if (methodUpper === 'TUNAI') {
-    lines.push(formatTotalLine('Kembalian', formatRupiahDisplay(data.changeAmount)));
+  if (isSplitReceipt) {
+    lines.push(formatTotalLine('Bayar (TUNAI)', formatRupiahDisplay(data.cashReceived || 0)));
+    lines.push(formatTotalLine('Bayar (QRIS)', formatRupiahDisplay(data.qrisReceived || 0)));
+  } else {
+    const methodUpper = String(data.paymentMethod || 'TUNAI').toUpperCase();
+    lines.push(formatTotalLine(`Bayar (${methodUpper})`, formatRupiahDisplay(data.paymentAmount)));
   }
+
+  lines.push(formatTotalLine('Kembalian', formatRupiahDisplay(data.changeAmount)));
 
   lines.push(DIVIDER_EQUAL);
   lines.push(data.receiptFooter || 'Matur Nuwun Sampun Rawuh!');
@@ -369,6 +417,9 @@ export function formatTemporaryBillReceipt(data: PrintReceiptData): string[] {
         formatRupiahDisplay(item.subtotal, false)
       )
     );
+    if (item.notes && item.notes.trim().length > 0) {
+      lines.push(`  * ${item.notes.trim()}`);
+    }
   }
   lines.push(DIVIDER_DASH);
 
@@ -458,6 +509,9 @@ export async function printTemporaryBill(data: PrintReceiptData): Promise<void> 
       formatRupiahDisplay(item.subtotal, false)
     );
     await BluetoothEscposPrinter.printText(`${line}\n\r`, {});
+    if (item.notes && item.notes.trim().length > 0) {
+      await BluetoothEscposPrinter.printText(`  * ${item.notes.trim()}\n\r`, {});
+    }
   }
 
   await BluetoothEscposPrinter.printText(`${DIVIDER_DASH}\n\r`, {});
