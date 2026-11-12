@@ -175,6 +175,7 @@ export default function TransaksiScreen() {
     try {
       const now = new Date();
       const timeStr = `${formatFullIndonesianDate(now)}, ${formatRealtimeClock(now)}`;
+      const currentCartItems = [...cart];
       const res = await saveAsPendingOrder(db);
 
       if (res.isAdditional && res.deltaItems.length > 0) {
@@ -192,19 +193,13 @@ export default function TransaksiScreen() {
             notes: d.notes,
           })),
         }).catch((err) => console.warn('Gagal cetak tiket sambungan dapur:', err));
-
-        Alert.alert(
-          'Pesanan Sambungan Disimpan',
-          `Pesanan tambahan meja ${tableNumber} berhasil disimpan (${res.invoiceNumber}) dan tiket pesanan tambahan dikirim ke dapur.`,
-          [{ text: 'OK', onPress: () => clearCart() }]
-        );
       } else {
         // Cetak tiket dapur awal untuk pesanan meja baru (tanpa harga)
         printKitchenTicket({
           invoiceNumber: res.invoiceNumber,
           tableNumber: res.tableNumber || tableNumber,
           dateTimeString: timeStr,
-          items: cart.map((i) => ({
+          items: currentCartItems.map((i) => ({
             name: i.name,
             price: i.price,
             qty: i.qty,
@@ -213,13 +208,56 @@ export default function TransaksiScreen() {
             notes: i.notes,
           })),
         }).catch((err) => console.warn('Gagal cetak tiket dapur:', err));
-
-        Alert.alert(
-          'Pesanan Meja Disimpan',
-          `Pesanan ${tableNumber} berhasil disimpan sebagai pending (${res.invoiceNumber}) dan tiket dikirim ke dapur.`,
-          [{ text: 'OK', onPress: () => clearCart() }]
-        );
       }
+
+      const tempBillPayload: PrintReceiptData = {
+        storeName: storeProfile.storeName || 'ANGKRINGAN JOGJA',
+        storeAddress: storeProfile.storeAddress || 'Jl. Malioboro No. 45, Yogyakarta',
+        storePhone: storeProfile.storePhone || '0812-3456-7890',
+        receiptFooter: storeProfile.receiptFooter || 'Matur Nuwun Sampun Rawuh!',
+        invoiceNumber: res.invoiceNumber,
+        businessDate: getBusinessDate(now),
+        dateTimeString: `${formatFullIndonesianDate(now)}, ${formatRealtimeClock(now)}`,
+        tableNumber: res.tableNumber || tableNumber,
+        customerName,
+        cashierName: activeCashier || activeCashierName || 'Kasir',
+        items: currentCartItems.map((i) => ({
+          name: i.name,
+          price: i.price,
+          qty: i.qty,
+          subtotal: i.subtotal,
+          is_additional: i.is_additional,
+          notes: i.notes,
+        })),
+        subtotal,
+        taxAmount: tax,
+        discountAmount,
+        total: grandTotal,
+        paymentMethod: 'tagihan_sementara',
+        paymentAmount: 0,
+        changeAmount: 0,
+      };
+
+      Alert.alert(
+        res.isAdditional ? 'Pesanan Sambungan Disimpan' : 'Pesanan Meja Disimpan',
+        `Pesanan ${res.tableNumber || tableNumber} (${res.invoiceNumber}) berhasil disimpan ke sistem.\nTiket pesanan otomatis dikirim ke printer dapur.`,
+        [
+          {
+            text: 'Cetak Tagihan Sementara',
+            onPress: () => {
+              setLastReceiptData(tempBillPayload);
+              setReceiptPreviewTab('temp_bill');
+              setReceiptPreviewVisible(true);
+              clearCart();
+            },
+          },
+          {
+            text: 'Selesai',
+            style: 'cancel',
+            onPress: () => clearCart(),
+          },
+        ]
+      );
     } catch (err: any) {
       Alert.alert('Gagal', err?.message || 'Gagal menyimpan pesanan pending');
     }
@@ -587,10 +625,6 @@ export default function TransaksiScreen() {
 
           {/* Ringkasan Biaya Tagihan */}
           <View style={styles.cartSummaryBox}>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Sub Total</Text>
-              <Text style={styles.summaryVal}>{formatRupiahDisplay(subtotal)}</Text>
-            </View>
             {tax > 0 && (
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Pajak (PB1)</Text>
@@ -618,17 +652,9 @@ export default function TransaksiScreen() {
                 title={activePendingTransactionId ? 'Perbarui Meja' : 'Simpan Pending'}
                 variant="outline"
                 size="md"
-                style={{ flex: 1.3 }}
+                style={{ flex: 2 }}
                 disabled={cart.length === 0}
                 onPress={handleHoldOrder}
-              />
-              <Button
-                title="Tagihan"
-                variant="secondary"
-                size="md"
-                style={{ flex: 1 }}
-                disabled={cart.length === 0}
-                onPress={handleTemporaryBill}
               />
             </View>
 

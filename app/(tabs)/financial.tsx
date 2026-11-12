@@ -386,51 +386,6 @@ export default function FinancialScreen() {
           </View>
         </View>
 
-        {/* Highlight 3 Juara Teratas */}
-        {topSellingItems.length > 0 && (
-          <View style={styles.topSellersHeroRow}>
-            <Card style={[styles.topSellerHeroCard, { borderColor: '#f59e0b', backgroundColor: '#fffbeb' }]}>
-              <View style={styles.heroRankBadge}>
-                <Text style={styles.heroRankText}>🥇 JUARA 1</Text>
-              </View>
-              <Text style={styles.heroMenuName} numberOfLines={1}>
-                {topSellingItems[0].menu_name}
-              </Text>
-              <Text style={styles.heroMenuStats}>
-                {topSellingItems[0].total_qty} terjual • {formatRupiahDisplay(topSellingItems[0].total_omzet)}
-              </Text>
-            </Card>
-
-            {topSellingItems.length > 1 && (
-              <Card style={[styles.topSellerHeroCard, { borderColor: '#94a3b8', backgroundColor: '#f8fafc' }]}>
-                <View style={[styles.heroRankBadge, { backgroundColor: '#64748b' }]}>
-                  <Text style={styles.heroRankText}>🥈 JUARA 2</Text>
-                </View>
-                <Text style={styles.heroMenuName} numberOfLines={1}>
-                  {topSellingItems[1].menu_name}
-                </Text>
-                <Text style={styles.heroMenuStats}>
-                  {topSellingItems[1].total_qty} terjual • {formatRupiahDisplay(topSellingItems[1].total_omzet)}
-                </Text>
-              </Card>
-            )}
-
-            {topSellingItems.length > 2 && (
-              <Card style={[styles.topSellerHeroCard, { borderColor: '#d97706', backgroundColor: '#fff7ed' }]}>
-                <View style={[styles.heroRankBadge, { backgroundColor: '#b45309' }]}>
-                  <Text style={styles.heroRankText}>🥉 JUARA 3</Text>
-                </View>
-                <Text style={styles.heroMenuName} numberOfLines={1}>
-                  {topSellingItems[2].menu_name}
-                </Text>
-                <Text style={styles.heroMenuStats}>
-                  {topSellingItems[2].total_qty} terjual • {formatRupiahDisplay(topSellingItems[2].total_omzet)}
-                </Text>
-              </Card>
-            )}
-          </View>
-        )}
-
         {/* Daftar Seluruh Item Terjual */}
         <FlatList
           data={topSellingItems}
@@ -1287,42 +1242,6 @@ const styles = StyleSheet.create({
   sortChipTextActive: {
     color: '#ffffff',
     fontWeight: '700',
-  },
-  topSellersHeroRow: {
-    flexDirection: 'row',
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-  },
-  topSellerHeroCard: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1.5,
-  },
-  heroRankBadge: {
-    backgroundColor: '#f59e0b',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
-    alignSelf: 'flex-start',
-    marginBottom: 6,
-  },
-  heroRankText: {
-    color: '#ffffff',
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  heroMenuName: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: Colors.text,
-    marginBottom: 2,
-  },
-  heroMenuStats: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-    fontWeight: '600',
   },
   topSellerCard: {
     padding: 12,

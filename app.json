@@ -2,7 +2,7 @@
   "expo": {
     "name": "POS Angkringan Jogja",
     "slug": "pos-angkringan-jogja",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "posangkringan",
@@ -21,7 +21,7 @@
     },
     "android": {
       "package": "com.angkringanjogja.posoffline",
-      "versionCode": 2,
+      "versionCode": 3,
       "permissions": [
         "android.permission.BLUETOOTH_SCAN",
         "android.permission.BLUETOOTH_CONNECT",

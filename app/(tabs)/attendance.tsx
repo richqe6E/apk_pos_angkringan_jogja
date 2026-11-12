@@ -25,7 +25,7 @@ import { AttendanceCameraModal } from '../../components/attendance-camera-modal'
 import { EmployeeModal } from '../../components/employee-modal';
 import { AdminPinModal } from '../../components/admin-pin-modal';
 import { getBusinessDate, formatFullIndonesianDate } from '../../utils/sessionHelper';
-import { exportAttendanceToPdf, exportAttendanceToCsv } from '../../services/export';
+import { exportAttendanceToPdf, exportMonthlyAttendanceToPdf, exportAttendanceToCsv } from '../../services/export';
 
 type ActiveTab = 'today' | 'history' | 'employees';
 
@@ -176,6 +176,25 @@ export default function AttendanceScreen() {
         },
       ]
     );
+  };
+
+  const handleExportMonthlyPdf = async () => {
+    setIsExporting(true);
+    try {
+      let records = attendanceHistory;
+      if (!records || records.length === 0) {
+        records = await loadAttendanceHistory(db, currentMonth);
+      }
+      if (!records || records.length === 0) {
+        Alert.alert('Data Kosong', `Tidak ada data absensi untuk bulan ${MONTH_NAMES[monthNum - 1]} ${yearNum}.`);
+        return;
+      }
+      await exportMonthlyAttendanceToPdf(records, currentMonth);
+    } catch (err: any) {
+      Alert.alert('Export Gagal', err.message || 'Terjadi kesalahan saat membuat PDF.');
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const handleExportPdf = async () => {
@@ -392,7 +411,14 @@ export default function AttendanceScreen() {
 
           <View style={styles.historyButtons}>
             <Button
-              title="Unduh PDF (Hari Ini)"
+              title={`Unduh PDF Bulan (${MONTH_NAMES[monthNum - 1]})`}
+              variant="primary"
+              onPress={handleExportMonthlyPdf}
+              loading={isExporting}
+              style={styles.exportBtn}
+            />
+            <Button
+              title="PDF Harian"
               variant="outline"
               onPress={handleExportPdf}
               loading={isExporting}
@@ -406,7 +432,7 @@ export default function AttendanceScreen() {
               style={styles.exportBtn}
             />
             <Button
-              title="Bersihkan Foto Bulanan"
+              title="Bersihkan Foto"
               variant="danger"
               onPress={handleCleanPhotosRequest}
               style={styles.exportBtn}

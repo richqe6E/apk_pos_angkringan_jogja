@@ -21,7 +21,7 @@ import { RealtimeClockBadge } from '../../components/realtime-clock-badge';
 import { Card } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
-import { AppIcon } from '../../components/ui/app-icon';
+import { AppIcon, AppIconName } from '../../components/ui/app-icon';
 import { ModalHeader } from '../../components/ui/modal-header';
 import { withSqliteRetry } from '../../services/database';
 import { usePrinterStore } from '../../stores/printerStore';
@@ -41,6 +41,56 @@ export interface BankAccount {
   account_holder: string;
 }
 
+export type SettingSubTab = 'profile' | 'qris_bank' | 'printer' | 'backup' | 'pin' | 'clear';
+
+interface SettingNavOption {
+  id: SettingSubTab;
+  title: string;
+  subtitle: string;
+  icon: AppIconName;
+  danger?: boolean;
+}
+
+const SETTING_NAV_OPTIONS: SettingNavOption[] = [
+  {
+    id: 'profile',
+    title: 'Profil Usaha',
+    subtitle: 'Nama, alamat, kontak & footer',
+    icon: 'store',
+  },
+  {
+    id: 'qris_bank',
+    title: 'QRIS & Rekening',
+    subtitle: 'Foto QRIS & akun transfer',
+    icon: 'qris',
+  },
+  {
+    id: 'printer',
+    title: 'Pengaturan Printer',
+    subtitle: 'Kasir & dapur Bluetooth 58mm',
+    icon: 'print',
+  },
+  {
+    id: 'backup',
+    title: 'Cadangan Data',
+    subtitle: 'Ekspor & impor database JSON',
+    icon: 'receipt',
+  },
+  {
+    id: 'pin',
+    title: 'Keamanan PIN',
+    subtitle: 'Otorisasi PIN pemilik toko',
+    icon: 'lock',
+  },
+  {
+    id: 'clear',
+    title: 'Pembersihan Data',
+    subtitle: 'Reset transaksi & absensi toko',
+    icon: 'trash',
+    danger: true,
+  },
+];
+
 export default function SettingsScreen() {
   const db = useSQLiteContext();
   const {
@@ -59,6 +109,7 @@ export default function SettingsScreen() {
   const [receiptFooter, setReceiptFooter] = useState('Matur Nuwun Sampun Rawuh!');
   const [adminPin, setAdminPin] = useState('123456');
   const [newAdminPin, setNewAdminPin] = useState('');
+  const [activeSubTab, setActiveSubTab] = useState<SettingSubTab>('profile');
 
   // QRIS State
   const [qrisImagePath, setQrisImagePath] = useState<string | null>(null);
@@ -391,6 +442,344 @@ export default function SettingsScreen() {
     setPendingAdminAction(null);
   };
 
+  const renderProfileSection = () => (
+    <Card style={styles.cardSection}>
+      <Text style={styles.sectionTitle}>Profil Usaha Angkringan</Text>
+      <Text style={styles.sectionSubtitle}>
+        Informasi toko yang akan tercetak di kepala (header) dan kaki (footer) struk thermal
+      </Text>
+
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>Nama Usaha / Angkringan</Text>
+        <TextInput
+          style={styles.textInput}
+          value={storeName}
+          onChangeText={setStoreName}
+          placeholder="Contoh: Angkringan Jogja"
+          placeholderTextColor={Colors.textMuted}
+        />
+      </View>
+
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>Alamat Usaha</Text>
+        <TextInput
+          style={styles.textInput}
+          value={storeAddress}
+          onChangeText={setStoreAddress}
+          placeholder="Contoh: Jl. Malioboro No. 45, Yogyakarta"
+          placeholderTextColor={Colors.textMuted}
+        />
+      </View>
+
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>Nomor Kontak / WhatsApp</Text>
+        <TextInput
+          style={styles.textInput}
+          value={storePhone}
+          onChangeText={setStorePhone}
+          placeholder="Contoh: 0812-3456-7890"
+          placeholderTextColor={Colors.textMuted}
+          keyboardType="phone-pad"
+        />
+      </View>
+
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>Pesan Kaki Struk (Footer Message)</Text>
+        <TextInput
+          style={styles.textInput}
+          value={receiptFooter}
+          onChangeText={setReceiptFooter}
+          placeholder="Contoh: Matur Nuwun Sampun Rawuh!"
+          placeholderTextColor={Colors.textMuted}
+        />
+      </View>
+
+      <View style={styles.cardActionRow}>
+        <Button
+          title="Simpan Profil Usaha"
+          variant="primary"
+          loading={isSavingProfile}
+          onPress={handleSaveProfile}
+          style={{ minWidth: 160 }}
+        />
+      </View>
+    </Card>
+  );
+
+  const renderQrisBankSection = () => (
+    <>
+      {/* Sub 1: QRIS Toko */}
+      <Card style={styles.cardSection}>
+        <View style={styles.sectionHeaderRow}>
+          <View style={{ flex: 1, marginRight: 12 }}>
+            <Text style={styles.sectionTitle}>Pembayaran QRIS Toko (Merchant QRIS)</Text>
+            <Text style={styles.sectionSubtitle}>
+              Unggah gambar/barcode QRIS toko untuk ditampilkan langsung di layar kasir saat pelanggan membayar via QRIS
+            </Text>
+          </View>
+          <Badge
+            label={qrisImagePath ? 'QRIS Aktif' : 'Belum Ada'}
+            variant={qrisImagePath ? 'success' : 'neutral'}
+          />
+        </View>
+
+        {qrisImagePath ? (
+          <View style={styles.qrisCardContainer}>
+            <View style={styles.qrisImageWrapper}>
+              <Image
+                source={{ uri: qrisImagePath }}
+                style={styles.qrisImagePreview}
+                resizeMode="contain"
+              />
+            </View>
+            <View style={styles.qrisInfoWrapper}>
+              <Text style={styles.qrisStatusTitle}>Foto QRIS Siap Digunakan</Text>
+              <Text style={styles.qrisStatusDesc}>
+                Kasir dapat memunculkan barcode QRIS ini secara penuh agar pelanggan mudah melakukan scan pembayaran dengan semua aplikasi e-wallet (GoPay, OVO, Dana, ShopeePay) & m-Banking.
+              </Text>
+              <View style={styles.qrisActionBtnRow}>
+                <Button
+                  title="Ganti Foto QRIS"
+                  variant="outline"
+                  size="sm"
+                  loading={isPickingQris}
+                  onPress={handlePickQrisImage}
+                  style={{ flex: 1 }}
+                />
+                <Button
+                  title="Hapus QRIS"
+                  variant="danger"
+                  size="sm"
+                  onPress={handleDeleteQrisImage}
+                  style={{ flex: 1 }}
+                />
+              </View>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.qrisPlaceholderContainer}>
+            <AppIcon name="qris" size={40} color={Colors.textMuted} style={{ marginBottom: 8 }} />
+            <Text style={styles.placeholderTitle}>Belum Ada Foto QRIS Toko</Text>
+            <Text style={styles.placeholderSubtitle}>
+              Unggah foto stiker atau tangkapan layar barcode QRIS dari BCA, Mandiri, BRI, GoPay, ShopeePay, atau merchant aggregator Anda.
+            </Text>
+            <Button
+              title="+ Pilih Foto QRIS dari Galeri"
+              variant="primary"
+              loading={isPickingQris}
+              onPress={handlePickQrisImage}
+              style={{ marginTop: 12 }}
+            />
+          </View>
+        )}
+      </Card>
+
+      {/* Sub 2: Rekening Bank Toko */}
+      <Card style={styles.cardSection}>
+        <View style={styles.sectionHeaderRow}>
+          <View style={{ flex: 1, marginRight: 12 }}>
+            <Text style={styles.sectionTitle}>Rekening Bank Toko (Multi-Bank Transfer)</Text>
+            <Text style={styles.sectionSubtitle}>
+              Daftar rekening tujuan transfer untuk mempermudah kasir menampilkan nomor rekening dan pemilik ke pelanggan
+            </Text>
+          </View>
+          <Button
+            title="+ Tambah Rekening"
+            variant="outline"
+            size="sm"
+            onPress={handleOpenAddBankModal}
+          />
+        </View>
+
+        {bankAccounts.length === 0 ? (
+          <View style={styles.emptyBankContainer}>
+            <AppIcon name="bank" size={36} color={Colors.textMuted} style={{ marginBottom: 6 }} />
+            <Text style={styles.placeholderTitle}>Belum Ada Rekening Bank Didaftarkan</Text>
+            <Text style={styles.placeholderSubtitle}>
+              Daftarkan rekening bank toko (BCA, Mandiri, BRI, BNI, dll) agar kasir dapat memilih rekening saat metode transfer dipilih.
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.bankGrid}>
+            {bankAccounts.map((account) => (
+              <View key={account.id} style={styles.bankItemCard}>
+                <View style={styles.bankItemHeader}>
+                  <Badge label={account.bank_name.toUpperCase()} variant="info" size="sm" />
+                  <TouchableOpacity
+                    onPress={() => handleDeleteBankAccount(account.id, account.bank_name, account.account_number)}
+                    style={styles.deleteBankBtn}
+                  >
+                    <AppIcon name="trash" size={12} color={Colors.danger} />
+                    <Text style={styles.deleteBankBtnText}>Hapus</Text>
+                  </TouchableOpacity>
+                </View>
+                <Text style={styles.bankAccountNumber} selectable>{account.account_number}</Text>
+                <Text style={styles.bankAccountHolder}>a.n. {account.account_holder}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+      </Card>
+    </>
+  );
+
+  const renderPrinterSection = () => (
+    <Card style={styles.cardSection}>
+      <View style={styles.sectionHeaderRow}>
+        <View>
+          <Text style={styles.sectionTitle}>Multi-Printer Bluetooth ESC/POS (58mm)</Text>
+          <Text style={styles.sectionSubtitle}>
+            Routing otomatis struk kasir & struk dapur (tanpa harga)
+          </Text>
+        </View>
+        <Button
+          title="Kelola Printer"
+          variant="outline"
+          size="sm"
+          onPress={() => setPrinterModalVisible(true)}
+        />
+      </View>
+
+      <View style={styles.printerStatusRow}>
+        <View style={styles.printerBox}>
+          <Text style={styles.printerLabel}>Printer Kasir (Customer):</Text>
+          <Text style={styles.printerName}>
+            {cashierPrinter ? cashierPrinter.name : 'Belum Ditentukan'}
+          </Text>
+          <Badge
+            label={cashierPrinter ? cashierPrinter.address : 'Tidak Terhubung'}
+            variant={cashierPrinter ? 'success' : 'neutral'}
+            size="sm"
+          />
+        </View>
+
+        <View style={styles.printerBox}>
+          <Text style={styles.printerLabel}>Printer Kitchen (Dapur):</Text>
+          <Text style={styles.printerName}>
+            {kitchenPrinter ? kitchenPrinter.name : 'Belum Ditentukan'}
+          </Text>
+          <Badge
+            label={kitchenPrinter ? kitchenPrinter.address : 'Tidak Terhubung'}
+            variant={kitchenPrinter ? 'info' : 'neutral'}
+            size="sm"
+          />
+        </View>
+      </View>
+
+      <View style={styles.toggleRow}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.toggleTitle}>Otomatis Cetak Struk Kasir saat Selesai Bayar</Text>
+          <Text style={styles.toggleSub}>Mencetak struk customer secara langsung tanpa popup</Text>
+        </View>
+        <Switch
+          value={autoPrintCashier}
+          onValueChange={setAutoPrintCashier}
+          trackColor={{ false: '#d1d5db', true: Colors.primary }}
+        />
+      </View>
+
+      <View style={[styles.toggleRow, { borderBottomWidth: 0 }]}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.toggleTitle}>Otomatis Cetak Struk Dapur saat Simpan Meja</Text>
+          <Text style={styles.toggleSub}>
+            Mencetak tiket pesanan dapur / sambungan tanpa nominal harga
+          </Text>
+        </View>
+        <Switch
+          value={autoPrintKitchen}
+          onValueChange={setAutoPrintKitchen}
+          trackColor={{ false: '#d1d5db', true: Colors.primary }}
+        />
+      </View>
+    </Card>
+  );
+
+  const renderBackupSection = () => (
+    <Card style={styles.cardSection}>
+      <Text style={styles.sectionTitle}>Cadangkan & Pulihkan Data (100% Offline)</Text>
+      <Text style={styles.sectionSubtitle}>
+        Simpan cadangan berkas JSON database ke penyimpanan eksternal, Google Drive atau kirim via WA
+      </Text>
+
+      <View style={styles.backupButtonsRow}>
+        <Button
+          title="Cadangkan Database (Export JSON)"
+          variant="outline"
+          loading={isBackingUp}
+          onPress={handleBackupDatabase}
+          style={{ flex: 1 }}
+        />
+        <Button
+          title="Pulihkan Database (Import JSON)"
+          variant="outline"
+          loading={isRestoring}
+          onPress={handlePickRestoreFile}
+          style={{ flex: 1 }}
+        />
+      </View>
+
+      <View style={styles.infoBox}>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+          <AppIcon name="info" size={16} color={Colors.primary} style={{ marginTop: 2 }} />
+          <Text style={styles.infoText}>
+            Tip Keamanan: Sangat disarankan untuk mengekspor cadangan JSON seminggu sekali atau
+            setiap akhir bulan untuk menjaga seluruh data penjualan, absensi, dan master menu tetap aman.
+          </Text>
+        </View>
+      </View>
+    </Card>
+  );
+
+  const renderPinSection = () => (
+    <Card style={styles.cardSection}>
+      <Text style={styles.sectionTitle}>Keamanan & PIN Otorisasi Pemilik</Text>
+      <Text style={styles.sectionSubtitle}>
+        PIN 6-digit untuk memproteksi input HPP bulanan, hapus data, dan pembersihan foto absensi
+      </Text>
+
+      <View style={styles.pinFormRow}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.label}>PIN Admin Baru (4 - 6 Digit)</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="Ketik PIN baru..."
+            placeholderTextColor={Colors.textMuted}
+            keyboardType="numeric"
+            secureTextEntry
+            maxLength={6}
+            value={newAdminPin}
+            onChangeText={setNewAdminPin}
+          />
+        </View>
+        <Button
+          title="Ubah PIN"
+          variant="outline"
+          onPress={handleChangeAdminPin}
+          style={{ marginTop: 20 }}
+        />
+      </View>
+    </Card>
+  );
+
+  const renderClearSection = () => (
+    <Card style={[styles.cardSection, styles.dangerZoneCard]}>
+      <Text style={[styles.sectionTitle, { color: Colors.danger }]}>
+        Zona Bahaya (Tindakan Terproteksi PIN)
+      </Text>
+      <Text style={styles.sectionSubtitle}>
+        Pembersihan riwayat operasional toko. Lakukan hanya jika sesi operasional telah selesai diaudit.
+      </Text>
+
+      <View style={{ marginTop: 10 }}>
+        <Button
+          title="Bersihkan Seluruh Riwayat Transaksi & Absensi"
+          variant="danger"
+          onPress={handleClearDataRequest}
+        />
+      </View>
+    </Card>
+  );
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -398,342 +787,93 @@ export default function SettingsScreen() {
         <View>
           <Text style={styles.headerTitle}>Pengaturan & Preferensi Sistem</Text>
           <Text style={styles.headerSubtitle}>
-            Profil Usaha, Printer Bluetooth, Backup JSON & Keamanan PIN
+            Pusat konfigurasi profil toko, QRIS, printer & keamanan
           </Text>
         </View>
         <RealtimeClockBadge showDate={false} />
       </View>
 
-      <ScrollView style={styles.scrollArea} contentContainerStyle={styles.scrollContent}>
-        {/* Section 1: Profil Usaha */}
-        <Card style={styles.cardSection}>
-          <Text style={styles.sectionTitle}>Profil Usaha Angkringan</Text>
-          <Text style={styles.sectionSubtitle}>
-            Informasi toko yang akan tercetak di kepala (header) dan kaki (footer) struk thermal
-          </Text>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Nama Usaha / Angkringan</Text>
-            <TextInput
-              style={styles.textInput}
-              value={storeName}
-              onChangeText={setStoreName}
-              placeholder="Contoh: Angkringan Jogja"
-              placeholderTextColor={Colors.textMuted}
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Alamat Usaha</Text>
-            <TextInput
-              style={styles.textInput}
-              value={storeAddress}
-              onChangeText={setStoreAddress}
-              placeholder="Contoh: Jl. Malioboro No. 45, Yogyakarta"
-              placeholderTextColor={Colors.textMuted}
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Nomor Kontak / WhatsApp</Text>
-            <TextInput
-              style={styles.textInput}
-              value={storePhone}
-              onChangeText={setStorePhone}
-              placeholder="Contoh: 0812-3456-7890"
-              placeholderTextColor={Colors.textMuted}
-              keyboardType="phone-pad"
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Pesan Kaki Struk (Footer Message)</Text>
-            <TextInput
-              style={styles.textInput}
-              value={receiptFooter}
-              onChangeText={setReceiptFooter}
-              placeholder="Contoh: Matur Nuwun Sampun Rawuh!"
-              placeholderTextColor={Colors.textMuted}
-            />
-          </View>
-
-          <View style={styles.cardActionRow}>
-            <Button
-              title="Simpan Profil Usaha"
-              variant="primary"
-              loading={isSavingProfile}
-              onPress={handleSaveProfile}
-              style={{ minWidth: 160 }}
-            />
-          </View>
-        </Card>
-
-        {/* Section 2: Pembayaran QRIS Toko */}
-        <Card style={styles.cardSection}>
-          <View style={styles.sectionHeaderRow}>
-            <View style={{ flex: 1, marginRight: 12 }}>
-              <Text style={styles.sectionTitle}>Pembayaran QRIS Toko (Merchant QRIS)</Text>
-              <Text style={styles.sectionSubtitle}>
-                Unggah gambar/barcode QRIS toko untuk ditampilkan langsung di layar kasir saat pelanggan membayar via QRIS
-              </Text>
-            </View>
-            <Badge
-              label={qrisImagePath ? 'QRIS Aktif' : 'Belum Ada'}
-              variant={qrisImagePath ? 'success' : 'neutral'}
-            />
-          </View>
-
-          {qrisImagePath ? (
-            <View style={styles.qrisCardContainer}>
-              <View style={styles.qrisImageWrapper}>
-                <Image
-                  source={{ uri: qrisImagePath }}
-                  style={styles.qrisImagePreview}
-                  resizeMode="contain"
-                />
-              </View>
-              <View style={styles.qrisInfoWrapper}>
-                <Text style={styles.qrisStatusTitle}>Foto QRIS Siap Digunakan</Text>
-                <Text style={styles.qrisStatusDesc}>
-                  Kasir dapat memunculkan barcode QRIS ini secara penuh agar pelanggan mudah melakukan scan pembayaran dengan semua aplikasi e-wallet (GoPay, OVO, Dana, ShopeePay) & m-Banking.
-                </Text>
-                <View style={styles.qrisActionBtnRow}>
-                  <Button
-                    title="Ganti Foto QRIS"
-                    variant="outline"
-                    size="sm"
-                    loading={isPickingQris}
-                    onPress={handlePickQrisImage}
-                    style={{ flex: 1 }}
-                  />
-                  <Button
-                    title="Hapus QRIS"
-                    variant="danger"
-                    size="sm"
-                    onPress={handleDeleteQrisImage}
-                    style={{ flex: 1 }}
-                  />
-                </View>
-              </View>
-            </View>
-          ) : (
-            <View style={styles.qrisPlaceholderContainer}>
-              <AppIcon name="qris" size={40} color={Colors.textMuted} style={{ marginBottom: 8 }} />
-              <Text style={styles.placeholderTitle}>Belum Ada Foto QRIS Toko</Text>
-              <Text style={styles.placeholderSubtitle}>
-                Unggah foto stiker atau tangkapan layar barcode QRIS dari BCA, Mandiri, BRI, GoPay, ShopeePay, atau merchant aggregator Anda.
-              </Text>
-              <Button
-                title="+ Pilih Foto QRIS dari Galeri"
-                variant="primary"
-                loading={isPickingQris}
-                onPress={handlePickQrisImage}
-                style={{ marginTop: 12 }}
-              />
-            </View>
-          )}
-        </Card>
-
-        {/* Section 3: Rekening Bank Toko (Multi-Bank Transfer) */}
-        <Card style={styles.cardSection}>
-          <View style={styles.sectionHeaderRow}>
-            <View style={{ flex: 1, marginRight: 12 }}>
-              <Text style={styles.sectionTitle}>Rekening Bank Toko (Multi-Bank Transfer)</Text>
-              <Text style={styles.sectionSubtitle}>
-                Daftar rekening tujuan transfer untuk mempermudah kasir menampilkan nomor rekening dan pemilik ke pelanggan
-              </Text>
-            </View>
-            <Button
-              title="+ Tambah Rekening"
-              variant="outline"
-              size="sm"
-              onPress={handleOpenAddBankModal}
-            />
-          </View>
-
-          {bankAccounts.length === 0 ? (
-            <View style={styles.emptyBankContainer}>
-              <AppIcon name="bank" size={36} color={Colors.textMuted} style={{ marginBottom: 6 }} />
-              <Text style={styles.placeholderTitle}>Belum Ada Rekening Bank Didaftarkan</Text>
-              <Text style={styles.placeholderSubtitle}>
-                Daftarkan rekening bank toko (BCA, Mandiri, BRI, BNI, dll) agar kasir dapat memilih rekening saat metode transfer dipilih.
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.bankGrid}>
-              {bankAccounts.map((account) => (
-                <View key={account.id} style={styles.bankItemCard}>
-                  <View style={styles.bankItemHeader}>
-                    <Badge label={account.bank_name.toUpperCase()} variant="info" size="sm" />
-                    <TouchableOpacity
-                      onPress={() => handleDeleteBankAccount(account.id, account.bank_name, account.account_number)}
-                      style={styles.deleteBankBtn}
-                    >
-                      <AppIcon name="trash" size={12} color={Colors.danger} />
-                      <Text style={styles.deleteBankBtnText}>Hapus</Text>
-                    </TouchableOpacity>
+      {/* Master-Detail Layout */}
+      <View style={styles.masterDetailContainer}>
+        {/* Left Navigation Sidebar */}
+        <View style={styles.sidebar}>
+          <ScrollView contentContainerStyle={styles.sidebarContent} showsVerticalScrollIndicator={false}>
+            {SETTING_NAV_OPTIONS.map((item) => {
+              const isActive = activeSubTab === item.id;
+              return (
+                <TouchableOpacity
+                  key={item.id}
+                  style={[
+                    styles.navItem,
+                    isActive && styles.navItemActive,
+                    item.danger && styles.navItemDanger,
+                    item.danger && isActive && styles.navItemDangerActive,
+                  ]}
+                  onPress={() => setActiveSubTab(item.id)}
+                  activeOpacity={0.7}
+                >
+                  <View
+                    style={[
+                      styles.navIconBox,
+                      isActive && styles.navIconBoxActive,
+                      item.danger && styles.navIconBoxDanger,
+                      item.danger && isActive && styles.navIconBoxDangerActive,
+                    ]}
+                  >
+                    <AppIcon
+                      name={item.icon}
+                      size={18}
+                      color={
+                        item.danger
+                          ? isActive
+                            ? '#ffffff'
+                            : Colors.danger
+                          : isActive
+                            ? '#ffffff'
+                            : Colors.primary
+                      }
+                    />
                   </View>
-                  <Text style={styles.bankAccountNumber} selectable>{account.account_number}</Text>
-                  <Text style={styles.bankAccountHolder}>a.n. {account.account_holder}</Text>
-                </View>
-              ))}
-            </View>
-          )}
-        </Card>
+                  <View style={styles.navTextContainer}>
+                    <Text
+                      style={[
+                        styles.navTitle,
+                        isActive && styles.navTitleActive,
+                        item.danger && styles.navTitleDanger,
+                      ]}
+                    >
+                      {item.title}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.navSubtitle,
+                        isActive && styles.navSubtitleActive,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {item.subtitle}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
 
-        {/* Section 4: Multi-Printer Bluetooth */}
-        <Card style={styles.cardSection}>
-          <View style={styles.sectionHeaderRow}>
-            <View>
-              <Text style={styles.sectionTitle}>Multi-Printer Bluetooth ESC/POS (58mm)</Text>
-              <Text style={styles.sectionSubtitle}>
-                Routing otomatis struk kasir & struk dapur (tanpa harga)
-              </Text>
-            </View>
-            <Button
-              title="Kelola Printer"
-              variant="outline"
-              size="sm"
-              onPress={() => setPrinterModalVisible(true)}
-            />
-          </View>
-
-          <View style={styles.printerStatusRow}>
-            <View style={styles.printerBox}>
-              <Text style={styles.printerLabel}>Printer Kasir (Customer):</Text>
-              <Text style={styles.printerName}>
-                {cashierPrinter ? cashierPrinter.name : 'Belum Ditentukan'}
-              </Text>
-              <Badge
-                label={cashierPrinter ? cashierPrinter.address : 'Tidak Terhubung'}
-                variant={cashierPrinter ? 'success' : 'neutral'}
-                size="sm"
-              />
-            </View>
-
-            <View style={styles.printerBox}>
-              <Text style={styles.printerLabel}>Printer Kitchen (Dapur):</Text>
-              <Text style={styles.printerName}>
-                {kitchenPrinter ? kitchenPrinter.name : 'Belum Ditentukan'}
-              </Text>
-              <Badge
-                label={kitchenPrinter ? kitchenPrinter.address : 'Tidak Terhubung'}
-                variant={kitchenPrinter ? 'info' : 'neutral'}
-                size="sm"
-              />
-            </View>
-          </View>
-
-          <View style={styles.toggleRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.toggleTitle}>Otomatis Cetak Struk Kasir saat Selesai Bayar</Text>
-              <Text style={styles.toggleSub}>Mencetak struk customer secara langsung tanpa popup</Text>
-            </View>
-            <Switch
-              value={autoPrintCashier}
-              onValueChange={setAutoPrintCashier}
-              trackColor={{ false: '#d1d5db', true: Colors.primary }}
-            />
-          </View>
-
-          <View style={[styles.toggleRow, { borderBottomWidth: 0 }]}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.toggleTitle}>Otomatis Cetak Struk Dapur saat Simpan Meja</Text>
-              <Text style={styles.toggleSub}>
-                Mencetak tiket pesanan dapur / sambungan tanpa nominal harga
-              </Text>
-            </View>
-            <Switch
-              value={autoPrintKitchen}
-              onValueChange={setAutoPrintKitchen}
-              trackColor={{ false: '#d1d5db', true: Colors.primary }}
-            />
-          </View>
-        </Card>
-
-        {/* Section 3: Cadangan & Pemulihan Database JSON */}
-        <Card style={styles.cardSection}>
-          <Text style={styles.sectionTitle}>Cadangkan & Pulihkan Data (100% Offline)</Text>
-          <Text style={styles.sectionSubtitle}>
-            Simpan cadangan berkas JSON database ke penyimpanan eksternal, Google Drive atau kirim via WA
-          </Text>
-
-          <View style={styles.backupButtonsRow}>
-            <Button
-              title="Cadangkan Database (Export JSON)"
-              variant="outline"
-              loading={isBackingUp}
-              onPress={handleBackupDatabase}
-              style={{ flex: 1 }}
-            />
-            <Button
-              title="Pulihkan Database (Import JSON)"
-              variant="outline"
-              loading={isRestoring}
-              onPress={handlePickRestoreFile}
-              style={{ flex: 1 }}
-            />
-          </View>
-
-          <View style={styles.infoBox}>
-            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
-              <AppIcon name="info" size={16} color={Colors.primary} style={{ marginTop: 2 }} />
-              <Text style={styles.infoText}>
-                Tip Keamanan: Sangat disarankan untuk mengekspor cadangan JSON seminggu sekali atau
-                setiap akhir bulan untuk menjaga seluruh data penjualan, absensi, dan master menu tetap aman.
-              </Text>
-            </View>
-          </View>
-        </Card>
-
-        {/* Section 4: Keamanan PIN Admin */}
-        <Card style={styles.cardSection}>
-          <Text style={styles.sectionTitle}>Keamanan & PIN Otorisasi Pemilik</Text>
-          <Text style={styles.sectionSubtitle}>
-            PIN 6-digit untuk memproteksi input HPP bulanan, hapus data, dan pembersihan foto absensi
-          </Text>
-
-          <View style={styles.pinFormRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.label}>PIN Admin Baru (4 - 6 Digit)</Text>
-              <TextInput
-                style={styles.textInput}
-                placeholder="Ketik PIN baru..."
-                placeholderTextColor={Colors.textMuted}
-                keyboardType="numeric"
-                secureTextEntry
-                maxLength={6}
-                value={newAdminPin}
-                onChangeText={setNewAdminPin}
-              />
-            </View>
-            <Button
-              title="Ubah PIN"
-              variant="outline"
-              onPress={handleChangeAdminPin}
-              style={{ marginTop: 20 }}
-            />
-          </View>
-        </Card>
-
-        {/* Section 5: Zona Bahaya */}
-        <Card style={[styles.cardSection, styles.dangerZoneCard]}>
-          <Text style={[styles.sectionTitle, { color: Colors.danger }]}>
-            Zona Bahaya (Tindakan Terproteksi PIN)
-          </Text>
-          <Text style={styles.sectionSubtitle}>
-            Pembersihan riwayat operasional toko. Lakukan hanya jika sesi operasional telah selesai diaudit.
-          </Text>
-
-          <View style={{ marginTop: 10 }}>
-            <Button
-              title="Bersihkan Seluruh Riwayat Transaksi & Absensi"
-              variant="danger"
-              onPress={handleClearDataRequest}
-            />
-          </View>
-        </Card>
-      </ScrollView>
+        {/* Right Detail Panel */}
+        <ScrollView
+          style={styles.detailScroll}
+          contentContainerStyle={styles.detailContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {activeSubTab === 'profile' && renderProfileSection()}
+          {activeSubTab === 'qris_bank' && renderQrisBankSection()}
+          {activeSubTab === 'printer' && renderPrinterSection()}
+          {activeSubTab === 'backup' && renderBackupSection()}
+          {activeSubTab === 'pin' && renderPinSection()}
+          {activeSubTab === 'clear' && renderClearSection()}
+        </ScrollView>
+      </View>
 
       {/* Printer Management Modal */}
       <PrinterManagementModal
@@ -870,12 +1010,89 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.85)',
     marginTop: 2,
   },
-  scrollArea: {
+  masterDetailContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    backgroundColor: Colors.background,
+  },
+  sidebar: {
+    width: 280,
+    backgroundColor: '#ffffff',
+    borderRightWidth: 1,
+    borderRightColor: Colors.border,
+  },
+  sidebarContent: {
+    paddingVertical: 10,
+  },
+  navItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: 'transparent',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f8fafc',
+  },
+  navItemActive: {
+    backgroundColor: '#ecfdf5',
+    borderLeftColor: Colors.primary,
+  },
+  navItemDanger: {
+    borderBottomColor: '#fef2f2',
+  },
+  navItemDangerActive: {
+    backgroundColor: '#fef2f2',
+    borderLeftColor: Colors.danger,
+  },
+  navIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: '#f0fdf4',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  navIconBoxActive: {
+    backgroundColor: Colors.primary,
+  },
+  navIconBoxDanger: {
+    backgroundColor: '#fee2e2',
+  },
+  navIconBoxDangerActive: {
+    backgroundColor: Colors.danger,
+  },
+  navTextContainer: {
     flex: 1,
   },
-  scrollContent: {
-    padding: 16,
+  navTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.text,
+  },
+  navTitleActive: {
+    color: Colors.primaryDark,
+    fontWeight: '800',
+  },
+  navTitleDanger: {
+    color: Colors.danger,
+  },
+  navSubtitle: {
+    fontSize: 11,
+    color: Colors.textMuted,
+    marginTop: 2,
+  },
+  navSubtitleActive: {
+    color: Colors.primaryDark,
+  },
+  detailScroll: {
+    flex: 1,
+  },
+  detailContent: {
+    padding: 20,
     gap: 16,
+    paddingBottom: 40,
   },
   cardSection: {
     padding: 16,
